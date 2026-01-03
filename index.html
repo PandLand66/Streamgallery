@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AirStream Gallery Layout</title>
+    <title>AirStream Gallery</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 </head>
@@ -14,64 +16,50 @@
     <div class="app-container">
         <header class="glass-panel header">
             <h1>AirStream Gallery</h1>
-            <div class="status">
-                Connected <span class="status-dot"></span>
+            <div class="status" id="status-badge">
+                Initializing... <span class="status-dot"></span>
             </div>
         </header>
 
-        <div class="action-area">
-            <button class="glass-btn icon-btn">
+        <div class="action-area" id="action-area">
+            <button class="glass-btn icon-btn" id="qr-btn">
                 <ion-icon name="qr-code-outline"></ion-icon>
-                Scan to Pair
+                <span>Show QR Code</span>
+            </button>
+            <input type="file" id="photo-input" multiple accept="image/*" hidden disabled>
+            <button class="glass-btn icon-btn hidden" id="send-btn" onclick="document.getElementById('photo-input').click()">
+                <ion-icon name="images-outline"></ion-icon>
+                <span>Select Photos</span>
             </button>
         </div>
 
         <main class="carousel-stage">
-            <div class="stage-item flank-left">
-                <img src="https://picsum.photos/id/1015/300/400" alt="Landscape">
-            </div>
-
-            <button class="nav-arrow glass-btn left">
+            <button class="nav-arrow glass-btn left" id="prev-btn">
                 <ion-icon name="chevron-back-outline"></ion-icon>
             </button>
 
             <div class="stage-item-container active-containerglow">
-                <div class="stage-item active-center glass-panel">
-                    <div class="placeholder-content">
-                        <ion-icon name="image-outline" style="font-size: 48px; opacity: 0.5;"></ion-icon>
-                        <h3>Active Shared Screen</h3>
-                        <p>Content streamed from device appears here with a glowing border focus.</p>
+                <div class="stage-item active-center glass-panel" id="active-stage">
+                    
+                    <div class="placeholder-content" id="placeholder-content">
+                        <ion-icon name="cloud-upload-outline" style="font-size: 48px; opacity: 0.5;"></ion-icon>
+                        <h3 id="stage-title">Ready to Pair</h3>
+                        <p id="stage-desc">Scan the QR code to start streaming photos.</p>
+                        <div id="qrcode-canvas" style="margin-top: 15px; display: none;"></div>
                     </div>
+
+                    <img id="main-image" src="" style="display: none; width: 100%; height: 100%; object-fit: cover;">
                 </div>
             </div>
 
-            <button class="nav-arrow glass-btn right">
+            <button class="nav-arrow glass-btn right" id="next-btn">
                 <ion-icon name="chevron-forward-outline"></ion-icon>
             </button>
-
-            <div class="stage-item flank-right">
-                <img src="https://picsum.photos/id/1016/300/400" alt="Sunset">
-            </div>
         </main>
 
-        <footer class="glass-panel thumbnails-bar">
-            <div class="thumb">
-                <img src="https://picsum.photos/id/1018/80/80" alt="thumb">
-            </div>
-            <div class="thumb">
-                <img src="https://picsum.photos/id/1015/80/80" alt="thumb">
-            </div>
+        <footer class="glass-panel thumbnails-bar" id="thumbnails-container">
             <div class="thumb active">
-                <div class="placeholder-thumb">Let's Go!</div>
-            </div>
-             <div class="thumb">
-                <img src="https://picsum.photos/id/1019/80/80" alt="thumb">
-            </div>
-            <div class="thumb">
-                <img src="https://picsum.photos/id/1016/80/80" alt="thumb">
-            </div>
-             <div class="thumb">
-                <img src="https://picsum.photos/id/1021/80/80" alt="thumb">
+                <div class="placeholder-thumb">Start</div>
             </div>
         </footer>
     </div>
