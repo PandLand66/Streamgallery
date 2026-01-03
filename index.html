@@ -119,18 +119,16 @@
         /* Sidebar */
         .sidebar {
             width: 300px;
-            display: flex; /* Flex by default, JS will toggle */
+            display: flex;
             flex-direction: column;
             gap: 1rem;
             transition: margin 0.3s ease;
         }
         
-        /* Hide sidebar in Viewer mode */
         body.viewer-mode .sidebar {
             display: none;
         }
         
-        /* Expand gallery in Viewer mode */
         body.viewer-mode .gallery-section {
             padding-left: 0;
         }
@@ -153,7 +151,7 @@
         }
 
         #qrcode img {
-            display: block; /* Fix spacing */
+            display: block; 
         }
 
         .link-box {
@@ -252,7 +250,6 @@
             object-fit: contain;
         }
 
-        /* Lightbox Controls */
         .lb-controls {
             position: absolute;
             bottom: 30px;
@@ -302,7 +299,6 @@
         .lb-next { right: 0; }
         .lb-nav:hover { background: rgba(0,0,0,0.8); }
 
-        /* Responsive */
         @media (max-width: 768px) {
             .container { flex-direction: column; padding: 0.5rem; }
             .sidebar { width: 100%; }
@@ -318,11 +314,11 @@
             <p style="color: var(--text-secondary);">Connect devices seamlessly over the web.</p>
             
             <div class="role-buttons">
-                <button class="role-btn btn-sender" onclick="startApp('sender')">
+                <button class="role-btn btn-sender" id="btn-start-sender">
                     <i class="fas fa-satellite-dish"></i>
                     Sender
                 </button>
-                <button class="role-btn btn-viewer" onclick="startApp('viewer-manual')">
+                <button class="role-btn btn-viewer" id="btn-start-viewer">
                     <i class="fas fa-eye"></i>
                     Viewer
                 </button>
@@ -347,7 +343,7 @@
                 <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 10px;">
                     Scan with other device to connect.
                 </p>
-                <div class="link-box" id="shareLink" onclick="copyLink()">Generating link...</div>
+                <div class="link-box" id="shareLink">Generating link...</div>
             </div>
             
             <div style="background: var(--panel-bg); padding: 1.5rem; border-radius: 12px;">
@@ -370,10 +366,10 @@
             <div class="sender-controls">
                 <div class="toolbar">
                     <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
-                    <button class="btn btn-blue" onclick="document.getElementById('fileInput').click()">
+                    <button class="btn btn-blue" id="btn-add-photos">
                         <i class="fas fa-plus"></i> Add Photos
                     </button>
-                    <button class="btn btn-red" onclick="clearGallery()">
+                    <button class="btn btn-red" id="btn-clear-gallery">
                         <i class="fas fa-trash"></i> Clear
                     </button>
                 </div>
@@ -385,14 +381,13 @@
     </div>
 
     <div class="lightbox" id="lightbox">
-        <button class="lb-close" onclick="closeLightbox()">&times;</button>
-        
-        <button class="lb-nav lb-prev" onclick="changeSlide(-1)">&#10094;</button>
+        <button class="lb-close" id="btn-close-lightbox">&times;</button>
+        <button class="lb-nav lb-prev" id="btn-prev-slide">&#10094;</button>
         <img src="" id="lbImage" alt="Fullscreen">
-        <button class="lb-nav lb-next" onclick="changeSlide(1)">&#10095;</button>
+        <button class="lb-nav lb-next" id="btn-next-slide">&#10095;</button>
 
         <div class="lb-controls">
-            <button class="lb-btn" id="playBtn" onclick="toggleSlideshow()" title="Play/Pause Slideshow">
+            <button class="lb-btn" id="btn-play-slideshow" title="Play/Pause Slideshow">
                 <i class="fas fa-play"></i>
             </button>
             <span style="color:white; font-size: 0.9rem; display: flex; align-items: center; margin-left: 10px;">
@@ -403,197 +398,177 @@
     </div>
 
     <script>
-        // --- Variables ---
-        let peer = null;
-        let conn = null; // Connection object
-        let myId = null;
-        let role = 'sender'; // 'sender' or 'viewer'
-        let photos = []; // Array of Base64 strings
-        let connections = []; // For sender: list of connected viewers
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Variables ---
+            let peer = null;
+            let conn = null;
+            let myId = null;
+            let role = 'sender'; 
+            let photos = []; 
+            let connections = []; 
+            let currentIndex = 0;
+            let slideshowInterval = null;
+            let isPlaying = false;
 
-        // Slideshow vars
-        let currentIndex = 0;
-        let slideshowInterval = null;
-        let isPlaying = false;
+            // --- Elements ---
+            const landingOverlay = document.getElementById('landing-overlay');
+            const galleryGrid = document.getElementById('galleryGrid');
+            const fileInput = document.getElementById('fileInput');
+            
+            // --- Initialization Logic ---
+            const urlParams = new URLSearchParams(window.location.search);
+            const hostId = urlParams.get('host');
 
-        // --- Initialization ---
-
-        // Check URL for host ID (if scanned QR)
-        const urlParams = new URLSearchParams(window.location.search);
-        const hostId = urlParams.get('host');
-
-        if (hostId) {
-            // If URL has host ID, skip landing page and go straight to Viewer
-            startApp('viewer', hostId);
-        }
-
-        function startApp(selectedRole, targetHostId = null) {
-            role = selectedRole === 'viewer-manual' ? 'viewer' : selectedRole;
-            document.getElementById('landing-overlay').style.display = 'none';
-
-            if (role === 'viewer') {
-                document.body.classList.add('viewer-mode');
-                initPeerViewer(targetHostId || prompt("Enter Host ID (or scan QR code):"));
-            } else {
-                initPeerSender();
+            if (hostId) {
+                // Auto-start as viewer if URL param exists
+                startApp('viewer', hostId);
             }
-        }
 
-        // --- Networking (PeerJS) ---
+            // --- Event Listeners for Buttons ---
+            document.getElementById('btn-start-sender').addEventListener('click', () => startApp('sender'));
+            document.getElementById('btn-start-viewer').addEventListener('click', () => startApp('viewer-manual'));
+            
+            document.getElementById('btn-add-photos').addEventListener('click', () => fileInput.click());
+            document.getElementById('btn-clear-gallery').addEventListener('click', clearGallery);
+            document.getElementById('shareLink').addEventListener('click', copyLink);
+            
+            // Lightbox listeners
+            document.getElementById('btn-close-lightbox').addEventListener('click', closeLightbox);
+            document.getElementById('btn-prev-slide').addEventListener('click', () => changeSlide(-1));
+            document.getElementById('btn-next-slide').addEventListener('click', () => changeSlide(1));
+            document.getElementById('btn-play-slideshow').addEventListener('click', toggleSlideshow);
 
-        function initPeerSender() {
-            // Create a random ID for the sender
-            peer = new Peer(null, { debug: 2 });
+            // --- Main App Start ---
+            function startApp(selectedRole, targetHostId = null) {
+                role = selectedRole === 'viewer-manual' ? 'viewer' : selectedRole;
+                landingOverlay.style.display = 'none';
 
-            peer.on('open', (id) => {
-                myId = id;
-                console.log('My ID (Sender): ' + id);
-                generateQR(id);
-                updateStatus('Waiting for connection...', false);
-            });
+                if (role === 'viewer') {
+                    document.body.classList.add('viewer-mode');
+                    initPeerViewer(targetHostId || prompt("Enter Host ID (or scan QR code):"));
+                } else {
+                    initPeerSender();
+                }
+            }
 
-            peer.on('connection', (c) => {
-                console.log('Viewer connected');
-                connections.push(c);
-                updateStatus('Viewer Connected', true);
-                
-                // Send current photos to new viewer immediately
-                if(photos.length > 0) {
-                    c.send({ type: 'SYNC_ALL', data: photos });
+            // --- Networking (PeerJS) ---
+            function initPeerSender() {
+                // Ensure PeerJS is loaded
+                if (typeof Peer === 'undefined') {
+                    alert("Network library failed to load. Please refresh.");
+                    return;
                 }
 
-                // Handle data from viewer (if any needed in future)
-                c.on('data', (data) => {
-                    console.log('Received from viewer:', data);
-                });
-            });
-        }
+                peer = new Peer(null, { debug: 2 });
 
-        function initPeerViewer(hostIdToConnect) {
-            if(!hostIdToConnect) {
-                alert("No Host ID provided.");
-                location.reload();
-                return;
-            }
-
-            updateStatus('Connecting to host...', false);
-            peer = new Peer(null, { debug: 2 });
-
-            peer.on('open', (id) => {
-                // Connect to the Sender
-                conn = peer.connect(hostIdToConnect, { reliable: true });
-
-                conn.on('open', () => {
-                    updateStatus('Connected to Host', true);
+                peer.on('open', (id) => {
+                    myId = id;
+                    generateQR(id);
+                    updateStatus('Waiting for connection...', false);
                 });
 
-                conn.on('data', (data) => {
-                    handleData(data);
+                peer.on('connection', (c) => {
+                    connections.push(c);
+                    updateStatus('Viewer Connected', true);
+                    
+                    // Sync existing photos
+                    if(photos.length > 0) {
+                        setTimeout(() => {
+                            if(c.open) c.send({ type: 'SYNC_ALL', data: photos });
+                        }, 500);
+                    }
                 });
 
-                conn.on('close', () => {
-                    alert("Host disconnected");
-                    updateStatus('Disconnected', false);
+                peer.on('error', (err) => {
+                    console.error(err);
+                    alert("Connection Error: " + err.type);
                 });
-            });
-        }
-
-        // --- Data Handling ---
-
-        function handleData(packet) {
-            if (packet.type === 'SYNC_ALL') {
-                document.getElementById('syncIcon').style.display = 'inline-block';
-                photos = packet.data;
-                renderGallery();
-                setTimeout(() => {
-                    document.getElementById('syncIcon').style.display = 'none';
-                }, 1000);
             }
-            if (packet.type === 'ADD_PHOTO') {
-                photos.push(packet.data);
-                renderGallery();
+
+            function initPeerViewer(hostIdToConnect) {
+                if(!hostIdToConnect) {
+                    alert("No Host ID provided.");
+                    location.reload();
+                    return;
+                }
+
+                updateStatus('Connecting...', false);
+                peer = new Peer(null, { debug: 2 });
+
+                peer.on('open', (id) => {
+                    conn = peer.connect(hostIdToConnect, { reliable: true });
+
+                    conn.on('open', () => {
+                        updateStatus('Connected to Host', true);
+                    });
+
+                    conn.on('data', (data) => {
+                        handleData(data);
+                    });
+
+                    conn.on('close', () => {
+                        alert("Host disconnected");
+                        updateStatus('Disconnected', false);
+                    });
+                });
+
+                peer.on('error', (err) => {
+                    console.error(err);
+                    alert("Connection Error: " + err.type);
+                });
             }
-            if (packet.type === 'CLEAR') {
-                photos = [];
-                renderGallery();
-            }
-        }
 
-        // --- Sender Logic ---
-
-        function generateQR(id) {
-            const baseUrl = window.location.href.split('?')[0];
-            const fullLink = `${baseUrl}?host=${id}`;
-            
-            // Render QR
-            document.getElementById('qrcode').innerHTML = "";
-            new QRCode(document.getElementById('qrcode'), {
-                text: fullLink,
-                width: 180,
-                height: 180
-            });
-
-            // Set link text
-            document.getElementById('shareLink').textContent = fullLink;
-        }
-
-        function copyLink() {
-            const text = document.getElementById('shareLink').textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                alert("Link copied to clipboard!");
-            });
-        }
-
-        // --- File Handling (Sender) ---
-
-        document.getElementById('fileInput').addEventListener('change', (e) => {
-            const files = Array.from(e.target.files);
-            
-            files.forEach(file => {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    const base64 = event.target.result;
-                    photos.push(base64);
+            function handleData(packet) {
+                if (packet.type === 'SYNC_ALL') {
+                    document.getElementById('syncIcon').style.display = 'inline-block';
+                    photos = packet.data;
                     renderGallery();
-                    broadcast({ type: 'ADD_PHOTO', data: base64 });
-                };
-                reader.readAsDataURL(file);
-            });
-            // Reset input
-            document.getElementById('fileInput').value = '';
-        });
-
-        function clearGallery() {
-            if(confirm("Delete all photos for everyone?")) {
-                photos = [];
-                renderGallery();
-                broadcast({ type: 'CLEAR' });
-            }
-        }
-
-        function broadcast(packet) {
-            connections.forEach(c => {
-                if(c.open) c.send(packet);
-            });
-        }
-
-        // --- UI Rendering ---
-
-        function renderGallery() {
-            const grid = document.getElementById('galleryGrid');
-            const countLabel = document.getElementById('photoCount');
-            
-            grid.innerHTML = '';
-            countLabel.textContent = `${photos.length} photo${photos.length !== 1 ? 's' : ''}`;
-
-            if (photos.length === 0) {
-                grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:2rem; color:var(--text-secondary);">
-                    <i class="fas fa-image" style="font-size:2rem; margin-bottom:10px;"></i><br>Gallery is empty
-                </div>`;
-                return;
+                    setTimeout(() => {
+                        document.getElementById('syncIcon').style.display = 'none';
+                    }, 1000);
+                }
+                if (packet.type === 'ADD_PHOTO') {
+                    photos.push(packet.data);
+                    renderGallery();
+                }
+                if (packet.type === 'CLEAR') {
+                    photos = [];
+                    renderGallery();
+                }
             }
 
-            photos.forEach((src, index) => {
-                const card = document.createElement('div');
-                card.className = 'photo-card';
-                card.innerHTML = `<i
+            // --- Sender Functions ---
+            function generateQR(id) {
+                const baseUrl = window.location.href.split('?')[0];
+                const fullLink = `${baseUrl}?host=${id}`;
+                
+                const qrContainer = document.getElementById('qrcode');
+                qrContainer.innerHTML = "";
+                new QRCode(qrContainer, {
+                    text: fullLink,
+                    width: 180,
+                    height: 180
+                });
+
+                document.getElementById('shareLink').textContent = fullLink;
+            }
+
+            function copyLink() {
+                const text = document.getElementById('shareLink').textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    alert("Link copied!");
+                });
+            }
+
+            // --- File Handling ---
+            fileInput.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files);
+                if(files.length === 0) return;
+
+                files.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const base64 = event.target.result;
+                        photos.push(base64);
+                        renderGallery();
+                        broadcast({ type: 'ADD_PHOT
