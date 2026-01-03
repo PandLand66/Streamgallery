@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirStream Gallery</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <main class="glass-container">
+        <header class="glass-header">
+            <div class="header-left">
+                <span class="icon-logo">✨</span>
+                <h1>AirStream</h1>
+            </div>
+            <div id="status-badge" class="status-badge connecting">
+                Initializing...
+            </div>
+        </header>
+
+        <section id="desktop-view">
+            <div id="qr-container" class="glass-card">
+                <h2>Scan to Pair</h2>
+                <p>Point your phone camera at this code to start streaming.</p>
+                <div id="qrcode-canvas"></div>
+                <div class="loading-spinner" id="qr-loading"></div>
+            </div>
+
+            <div id="gallery-view" class="hidden">
+                <div class="gallery-grid" id="gallery">
+                    </div>
+                 <div class="placeholder-text" id="gallery-placeholder">
+                    <p>Photos sent from your phone will appear here.</p>
+                 </div>
+            </div>
+        </section>
+
+        <section id="mobile-view" class="hidden">
+            <div class="mobile-controls-container">
+                <div class="glass-card mobile-card">
+                    <h2>Send Photos</h2>
+                    <p>Select images from your library to stream instantly.</p>
+                    
+                    <input type="file" id="photo-input" multiple accept="image/*" hidden disabled>
+                    
+                    <button id="select-btn" class="apple-button disabled" onclick="document.getElementById('photo-input').click()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                        </svg>
+                        <span>Select Photos</span>
+                    </button>
+                </div>
+                <p class="helper-text">Ensure your laptop screen stays open.</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
