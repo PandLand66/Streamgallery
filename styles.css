@@ -1,0 +1,203 @@
+:root {
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.15);
+    --glass-highlight: rgba(255, 255, 255, 0.2);
+    --apple-blue: #007AFF;
+    --apple-green: #34c759;
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.7);
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    min-height: 100vh; /* Changed to min-height for scrolling gallery */
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    background: #000000;
+    color: var(--text-primary);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* Align top for scrolling */
+    padding: 20px;
+}
+
+/* --- Background Animation --- */
+.background-blobs {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: -1; overflow: hidden;
+}
+
+.blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.5;
+    animation: float 20s infinite ease-in-out alternate;
+}
+.blob-1 { width: 500px; height: 500px; background: #4facfe; top: -200px; left: -10%; }
+.blob-2 { width: 400px; height: 400px; background: #f093fb; bottom: -100px; right: -10%; animation-delay: -5s; }
+.blob-3 { width: 300px; height: 300px; background: #34c759; top: 40%; left: 30%; opacity: 0.3; animation-delay: -10s; }
+
+/* --- Main Glass Container --- */
+.glass-container {
+    width: 100%;
+    max-width: 900px;
+    /* Minimum height, but grows with content */
+    min-height: 80vh; 
+    background: var(--glass-bg);
+    backdrop-filter: blur(30px) saturate(150%);
+    -webkit-backdrop-filter: blur(30px) saturate(150%);
+    border: 1px solid var(--glass-border);
+    border-radius: 30px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Header & Status --- */
+.glass-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.header-left { display: flex; align-items: center; gap: 10px; }
+.icon-logo { font-size: 1.5rem; }
+h1 { margin: 0; font-weight: 600; font-size: 1.5rem; letter-spacing: -0.5px;}
+h2 { font-weight: 500; letter-spacing: -0.5px; margin-top: 0;}
+p { color: var(--text-secondary); line-height: 1.5; }
+
+.status-badge {
+    padding: 8px 16px;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+.status-badge.connecting { background: rgba(255, 200, 0, 0.2); color: #ffd60a; }
+.status-badge.ready { background: rgba(0, 122, 255, 0.2); color: var(--apple-blue); }
+.status-badge.connected { background: rgba(52, 199, 89, 0.2); color: var(--apple-green); box-shadow: 0 0 20px rgba(52, 199, 89, 0.2);}
+
+/* --- Reusable Glass Card (Used for QR & Mobile) --- */
+.glass-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+/* --- Desktop View Styles --- */
+#qr-container {
+    max-width: 400px;
+    margin: 40px auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#qrcode-canvas {
+    margin: 20px auto;
+    padding: 15px;
+    background: white; /* QR code needs high contrast */
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+#qrcode-canvas img { display: block; } /* Fix canvas spacing */
+
+.gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 20px;
+    padding: 20px 0;
+}
+
+.glass-img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 18px;
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    animation: popIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* --- Mobile View Styles --- */
+.mobile-controls-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 50vh;
+}
+
+.mobile-card { width: 100%; max-width: 350px; }
+
+.apple-button {
+    background: var(--apple-blue);
+    border: none;
+    color: white;
+    padding: 16px 32px;
+    font-size: 17px;
+    font-weight: 600;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    margin-top: 20px;
+    box-shadow: 0 4px 20px rgba(0, 122, 255, 0.4);
+}
+
+.apple-button:hover { transform: scale(1.02); background: #006be0; }
+.apple-button:active { transform: scale(0.98); }
+
+.apple-button.disabled {
+    background: #555;
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.helper-text { margin-top: 20px; font-size: 0.9rem; }
+.hidden { display: none !important; }
+
+/* --- Animations --- */
+@keyframes float {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    100% { transform: translate(50px, 50px) rotate(5deg); }
+}
+@keyframes popIn {
+    0% { opacity: 0; transform: scale(0.8); }
+    100% { opacity: 1; transform: scale(1); }
+}
+.loading-spinner {
+    border: 3px solid rgba(255,255,255,0.1);
+    border-top: 3px solid var(--apple-blue);
+    border-radius: 50%;
+    width: 30px; height: 30px;
+    animation: spin 1s linear infinite;
+    margin-top: 20px;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* --- Responsive Tweaks --- */
+@media (max-width: 768px) {
+    .glass-container { border-radius: 0; height: 100vh; padding: 20px; border: none;}
+    .glass-header { margin-bottom: 15px; }
+    .gallery-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    #qr-container { margin-top: 20vh; }
+}
