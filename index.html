@@ -5,10 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cross-Device Photo Stream</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
     <style>
         :root {
-            --bg-color: #050A18; /* Deep dark blue */
-            --panel-bg: #0F1C35; /* Slightly lighter panel */
+            --bg-color: #050A18;
+            --panel-bg: #0F1C35;
             --accent-blue: #3A6EA5;
             --accent-hover: #5086C1;
             --text-main: #FFFFFF;
@@ -18,11 +21,7 @@
             --font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             background-color: var(--bg-color);
@@ -34,426 +33,350 @@
             overflow: hidden;
         }
 
+        /* --- Landing Modal (Role Selection) --- */
+        #landing-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 10, 24, 0.95);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .role-card {
+            background: var(--panel-bg);
+            padding: 3rem;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .role-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            justify-content: center;
+        }
+
+        .role-btn {
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            border: none;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            width: 140px;
+        }
+
+        .role-btn i { font-size: 2rem; }
+
+        .btn-sender { background: var(--accent-blue); color: white; }
+        .btn-sender:hover { background: var(--accent-hover); transform: translateY(-3px); }
+
+        .btn-viewer { background: transparent; border: 2px solid var(--text-secondary); color: var(--text-secondary); }
+        .btn-viewer:hover { border-color: white; color: white; transform: translateY(-3px); }
+
         /* --- Header --- */
         header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1.5rem 3rem;
-            background: linear-gradient(180deg, rgba(15,28,53,0.8) 0%, rgba(5,10,24,0) 100%);
-            z-index: 10;
+            padding: 1rem 2rem;
+            background: rgba(15,28,53,0.9);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
         }
 
-        h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            letter-spacing: 0.5px;
+        .status-badge {
+            font-size: 0.8rem;
+            padding: 4px 12px;
+            border-radius: 20px;
+            background: #1e293b;
+            color: #94a3b8;
         }
-
-        nav a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            margin-left: 2rem;
-            font-weight: 500;
-            transition: color 0.3s;
-            position: relative;
-        }
-
-        nav a.active {
-            color: var(--text-main);
-        }
-
-        nav a.active::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background-color: var(--accent-blue);
-            border-radius: 2px;
-        }
-
-        nav a:hover {
-            color: var(--text-main);
-        }
+        .status-badge.connected { background: rgba(16, 185, 129, 0.2); color: #34d399; }
 
         /* --- Main Layout --- */
         .container {
             display: flex;
             flex: 1;
-            padding: 1rem 3rem 3rem 3rem;
-            gap: 2rem;
+            padding: 1rem;
+            gap: 1.5rem;
             overflow: hidden;
+            position: relative;
         }
 
-        /* Left Side: QR Code Panel */
+        /* Sidebar */
         .sidebar {
-            width: 320px;
-            display: flex;
+            width: 300px;
+            display: flex; /* Flex by default, JS will toggle */
             flex-direction: column;
-            gap: 1.5rem;
-            flex-shrink: 0;
+            gap: 1rem;
+            transition: margin 0.3s ease;
+        }
+        
+        /* Hide sidebar in Viewer mode */
+        body.viewer-mode .sidebar {
+            display: none;
+        }
+        
+        /* Expand gallery in Viewer mode */
+        body.viewer-mode .gallery-section {
+            padding-left: 0;
         }
 
         .qr-card {
             background-color: var(--panel-bg);
             border-radius: var(--border-radius);
-            padding: 2rem;
-            text-align: center;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            position: relative;
-        }
-
-        .qr-card h2 {
-            font-size: 1.1rem;
-            margin-bottom: 1.5rem;
-            font-weight: 500;
-        }
-
-        .qr-frame {
-            position: relative;
-            width: 200px;
-            height: 200px;
-            margin: 0 auto;
-            border: 2px solid transparent;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* Decorative corners for QR */
-        .corner {
-            position: absolute;
-            width: 30px;
-            height: 30px;
-            border: 3px solid var(--accent-blue);
-            border-radius: 4px;
-        }
-        .tl { top: -5px; left: -5px; border-right: none; border-bottom: none; }
-        .tr { top: -5px; right: -5px; border-left: none; border-bottom: none; }
-        .bl { bottom: -5px; left: -5px; border-right: none; border-top: none; }
-        .br { bottom: -5px; right: -5px; border-left: none; border-top: none; }
-
-        .qr-code-placeholder {
-            width: 100%;
-            height: 100%;
-            background-image: url('https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=GithubProjectDemo');
-            background-size: cover;
-            border-radius: 4px;
-            filter: invert(1) opacity(0.8);
-        }
-
-        /* Controls Area (Slideshow options) */
-        .controls-card {
-            background-color: var(--panel-bg);
-            border-radius: var(--border-radius);
             padding: 1.5rem;
+            text-align: center;
             display: flex;
             flex-direction: column;
-            gap: 1rem;
-            opacity: 0;
-            transform: translateY(20px);
-            animation: fadeIn 0.5s forwards 0.3s;
-        }
-        
-        @keyframes fadeIn {
-            to { opacity: 1; transform: translateY(0); }
+            align-items: center;
         }
 
-        .slider-container label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-            color: var(--text-secondary);
+        #qrcode {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
         }
 
-        input[type="range"] {
-            width: 100%;
-            height: 4px;
-            background: #334155;
-            border-radius: 2px;
-            outline: none;
-            -webkit-appearance: none;
+        #qrcode img {
+            display: block; /* Fix spacing */
         }
 
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #ffffff;
+        .link-box {
+            background: rgba(0,0,0,0.3);
+            padding: 8px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            word-break: break-all;
+            margin-top: 10px;
+            user-select: all;
             cursor: pointer;
-            transition: background 0.2s;
         }
 
-        /* --- Right Side: Gallery --- */
+        /* Gallery */
         .gallery-section {
             flex: 1;
             display: flex;
             flex-direction: column;
             gap: 1rem;
-            overflow: hidden;
+            background: rgba(255,255,255,0.02);
+            border-radius: var(--border-radius);
+            padding: 1rem;
         }
 
         .toolbar {
             display: flex;
-            justify-content: flex-end; /* Align buttons to right */
-            gap: 1rem;
-            padding-bottom: 0.5rem;
-            align-items: center;
-        }
-
-        /* Left-aligned slideshow button in the main area (per request placement) */
-        .slideshow-trigger {
-            margin-right: auto; /* Push others to right */
-            background-color: transparent;
-            border: 1px solid var(--accent-blue);
-            color: var(--accent-blue);
-        }
-        
-        .slideshow-trigger:hover {
-            background-color: rgba(58, 110, 165, 0.1);
-        }
-
-        .btn {
-            padding: 0.6rem 1.5rem;
-            border-radius: 8px;
-            border: none;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
+            justify-content: flex-end;
             gap: 0.5rem;
         }
 
-        .btn-primary {
-            background-color: transparent;
-            border: 1px solid var(--text-secondary);
-            color: var(--text-secondary);
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
         }
-        
-        .btn-primary:hover {
-            border-color: var(--text-main);
-            color: var(--text-main);
-        }
+        .btn-blue { background: var(--accent-blue); color: white; }
+        .btn-blue:hover { background: var(--accent-hover); }
+        .btn-outline { background: transparent; border: 1px solid var(--text-secondary); color: var(--text-secondary); }
+        .btn-outline:hover { color: white; border-color: white; }
+        .btn-red { background: rgba(255, 76, 76, 0.1); color: var(--danger); }
+        .btn-red:hover { background: rgba(255, 76, 76, 0.2); }
 
-        /* Hidden file input */
-        #fileInput {
-            display: none;
-        }
-
-        .btn-danger {
-            background-color: rgba(255, 76, 76, 0.1);
-            color: var(--danger);
-            border: 1px solid rgba(255, 76, 76, 0.3);
-        }
-
-        .btn-danger:hover {
-            background-color: rgba(255, 76, 76, 0.2);
-        }
-
-        .btn-action {
-            background-color: var(--accent-blue);
-            color: white;
-        }
-        .btn-action:hover {
-            background-color: var(--accent-hover);
-        }
-
-        /* Grid */
         .gallery-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
             overflow-y: auto;
-            padding-right: 5px;
-            height: 100%;
-        }
-
-        /* Scrollbar styling */
-        .gallery-grid::-webkit-scrollbar {
-            width: 6px;
-        }
-        .gallery-grid::-webkit-scrollbar-thumb {
-            background-color: rgba(255,255,255,0.1);
-            border-radius: 3px;
+            flex: 1;
         }
 
         .photo-card {
             aspect-ratio: 1;
-            background-color: #1e293b;
+            background: #000;
             border-radius: 8px;
             overflow: hidden;
             position: relative;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            animation: popIn 0.3s ease-out;
-            border: 2px solid transparent;
-        }
-
-        @keyframes popIn {
-            from { opacity: 0; transform: scale(0.9); }
-            to { opacity: 1; transform: scale(1); }
-        }
-
-        .photo-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        }
-
-        .photo-card.selected {
-            border-color: var(--accent-blue);
         }
         
-        /* Selection Overlay Checkmark */
-        .photo-card.selected::after {
-            content: '✓';
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: var(--accent-blue);
-            color: white;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-        }
-
         .photo-card img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        /* --- Footer --- */
-        footer {
-            padding: 1rem;
-            text-align: center;
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        /* --- Slideshow Modal --- */
-        .slideshow-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #000;
-            z-index: 100;
-            display: none; /* Hidden by default */
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .slideshow-overlay img {
-            max-width: 90%;
-            max-height: 90vh;
-            object-fit: contain;
-            animation: fadePhoto 0.5s ease;
+            width: 100%; height: 100%; object-fit: cover;
+            transition: transform 0.3s;
         }
         
-        @keyframes fadePhoto {
-            from { opacity: 0; }
-            to { opacity: 1; }
+        .photo-card:hover img { transform: scale(1.05); }
+
+        /* Viewer Mode Specifics */
+        .viewer-controls { display: none; }
+        body.viewer-mode .viewer-controls { display: flex; width: 100%; justify-content: space-between; align-items: center; margin-bottom: 1rem;}
+        body.viewer-mode .sender-controls { display: none; }
+
+        /* --- Lightbox / Slideshow --- */
+        .lightbox {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: black;
+            z-index: 3000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
 
-        .close-slideshow {
+        .lightbox.active { display: flex; }
+
+        .lightbox img {
+            max-width: 100%;
+            max-height: 100vh;
+            object-fit: contain;
+        }
+
+        /* Lightbox Controls */
+        .lb-controls {
             position: absolute;
-            top: 20px;
-            right: 30px;
-            color: white;
-            font-size: 2rem;
-            cursor: pointer;
+            bottom: 30px;
+            display: flex;
+            gap: 20px;
+            background: rgba(20,20,20,0.8);
+            padding: 10px 20px;
+            border-radius: 30px;
+            z-index: 3001;
+        }
+
+        .lb-btn {
             background: none;
             border: none;
-            opacity: 0.7;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: 40px; height: 40px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 50%;
         }
-        .close-slideshow:hover { opacity: 1; }
+        .lb-btn:hover { background: rgba(255,255,255,0.2); }
+
+        .lb-close {
+            position: absolute;
+            top: 20px; right: 20px;
+            font-size: 2rem;
+            color: white;
+            cursor: pointer;
+            z-index: 3002;
+            background: none; border: none;
+        }
+
+        .lb-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.5);
+            color: white;
+            border: none;
+            padding: 20px;
+            font-size: 2rem;
+            cursor: pointer;
+            z-index: 3001;
+        }
+        .lb-prev { left: 0; }
+        .lb-next { right: 0; }
+        .lb-nav:hover { background: rgba(0,0,0,0.8); }
 
         /* Responsive */
         @media (max-width: 768px) {
-            .container {
-                flex-direction: column;
-                padding: 1rem;
-            }
-            .sidebar {
-                width: 100%;
-                flex-direction: row;
-                overflow-x: auto;
-            }
-            .qr-card {
-                min-width: 250px;
-            }
+            .container { flex-direction: column; padding: 0.5rem; }
+            .sidebar { width: 100%; }
+            .role-buttons { flex-direction: column; align-items: center; }
         }
     </style>
 </head>
 <body>
 
+    <div id="landing-overlay">
+        <div class="role-card">
+            <h1 style="margin-bottom: 0.5rem;">Photo Stream</h1>
+            <p style="color: var(--text-secondary);">Connect devices seamlessly over the web.</p>
+            
+            <div class="role-buttons">
+                <button class="role-btn btn-sender" onclick="startApp('sender')">
+                    <i class="fas fa-satellite-dish"></i>
+                    Sender
+                </button>
+                <button class="role-btn btn-viewer" onclick="startApp('viewer-manual')">
+                    <i class="fas fa-eye"></i>
+                    Viewer
+                </button>
+            </div>
+            <p style="margin-top: 1.5rem; font-size: 0.8rem; color: #555;">No installation required.</p>
+        </div>
+    </div>
+
     <header>
-        <h1>Cross-Device Photo Stream</h1>
-        <nav>
-            <a href="#" class="active">Gallery</a>
-            <a href="#">Settings</a>
-        </nav>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-bolt" style="color: var(--accent-blue);"></i>
+            <h2 style="font-size: 1.2rem;">Stream</h2>
+        </div>
+        <div class="status-badge" id="connectionStatus">Disconnected</div>
     </header>
 
     <div class="container">
-        <aside class="sidebar">
+        <aside class="sidebar" id="senderSidebar">
             <div class="qr-card">
-                <h2>Scan to Link Device</h2>
-                <div class="qr-frame">
-                    <div class="corner tl"></div>
-                    <div class="corner tr"></div>
-                    <div class="corner bl"></div>
-                    <div class="corner br"></div>
-                    <div class="qr-code-placeholder" title="Scan to connect"></div>
-                </div>
-                <p style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-secondary);">
-                    Use your phone camera to scan and sync gallery instantly.
+                <h3>Scan to View</h3>
+                <div id="qrcode"></div>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 10px;">
+                    Scan with other device to connect.
                 </p>
+                <div class="link-box" id="shareLink" onclick="copyLink()">Generating link...</div>
             </div>
-
-            <div class="controls-card" id="slideshowPanel">
-                <h3>Slideshow Settings</h3>
-                <div class="slider-container">
-                    <div style="display:flex; justify-content:space-between;">
-                        <label for="duration">Duration per Photo</label>
-                        <span id="durationValue" style="color: var(--accent-blue);">3s</span>
-                    </div>
-                    <input type="range" id="duration" min="1" max="10" value="3">
-                </div>
-                <button class="btn btn-action" id="startSlideshowBtn" style="width: 100%; justify-content: center;">
-                    <i class="fas fa-play"></i> Start Slideshow
-                </button>
+            
+            <div style="background: var(--panel-bg); padding: 1.5rem; border-radius: 12px;">
+                <h4 style="margin-bottom: 10px;">Controls</h4>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">
+                    Uploading photos here will instantly send them to connected viewers.
+                </p>
             </div>
         </aside>
 
         <section class="gallery-section">
-            <div class="toolbar">
-                <button class="btn slideshow-trigger" onclick="document.getElementById('slideshowPanel').scrollIntoView({behavior: 'smooth'})">
-                   <i class="fas fa-tv"></i> Configure Slideshow
-                </button>
+            <div class="viewer-controls">
+                <h3>Shared Gallery</h3>
+                <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                    <i class="fas fa-sync fa-spin" id="syncIcon" style="display:none; margin-right:5px;"></i>
+                    <span id="photoCount">0 photos</span>
+                </div>
+            </div>
 
-                <input type="file" id="fileInput" multiple accept="image/*">
-                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
-                    <i class="fas fa-cloud-upload-alt"></i> Import
-                </button>
-                <button class="btn btn-danger" id="deleteBtn">
-                    <i class="fas fa-trash-alt"></i> Delete
-                </button>
+            <div class="sender-controls">
+                <div class="toolbar">
+                    <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
+                    <button class="btn btn-blue" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-plus"></i> Add Photos
+                    </button>
+                    <button class="btn btn-red" onclick="clearGallery()">
+                        <i class="fas fa-trash"></i> Clear
+                    </button>
+                </div>
             </div>
 
             <div class="gallery-grid" id="galleryGrid">
@@ -461,155 +384,216 @@
         </section>
     </div>
 
-    <footer>
-        <i class="fab fa-github"></i> Hosted on GitHub
-    </footer>
+    <div class="lightbox" id="lightbox">
+        <button class="lb-close" onclick="closeLightbox()">&times;</button>
+        
+        <button class="lb-nav lb-prev" onclick="changeSlide(-1)">&#10094;</button>
+        <img src="" id="lbImage" alt="Fullscreen">
+        <button class="lb-nav lb-next" onclick="changeSlide(1)">&#10095;</button>
 
-    <div class="slideshow-overlay" id="slideshowOverlay">
-        <button class="close-slideshow" id="closeSlideshow">&times;</button>
-        <img src="" alt="Slideshow" id="slideshowImage">
+        <div class="lb-controls">
+            <button class="lb-btn" id="playBtn" onclick="toggleSlideshow()" title="Play/Pause Slideshow">
+                <i class="fas fa-play"></i>
+            </button>
+            <span style="color:white; font-size: 0.9rem; display: flex; align-items: center; margin-left: 10px;">
+                <input type="range" id="speedRange" min="1" max="5" value="3" style="width: 80px; margin-right: 5px;">
+                <span id="speedDisplay">3s</span>
+            </span>
+        </div>
     </div>
 
     <script>
-        // DOM Elements
-        const fileInput = document.getElementById('fileInput');
-        const galleryGrid = document.getElementById('galleryGrid');
-        const deleteBtn = document.getElementById('deleteBtn');
-        const durationInput = document.getElementById('duration');
-        const durationValue = document.getElementById('durationValue');
-        const startSlideshowBtn = document.getElementById('startSlideshowBtn');
-        const slideshowOverlay = document.getElementById('slideshowOverlay');
-        const slideshowImage = document.getElementById('slideshowImage');
-        const closeSlideshowBtn = document.getElementById('closeSlideshow');
+        // --- Variables ---
+        let peer = null;
+        let conn = null; // Connection object
+        let myId = null;
+        let role = 'sender'; // 'sender' or 'viewer'
+        let photos = []; // Array of Base64 strings
+        let connections = []; // For sender: list of connected viewers
 
-        // State
-        let photos = []; // Stores objects: { id, src }
-        let selectedIds = new Set();
-        let slideshowInterval;
-        let currentSlideIndex = 0;
+        // Slideshow vars
+        let currentIndex = 0;
+        let slideshowInterval = null;
+        let isPlaying = false;
 
-        // --- Event Listeners ---
+        // --- Initialization ---
 
-        // 1. Update Slider Value Display
-        durationInput.addEventListener('input', (e) => {
-            durationValue.textContent = e.target.value + 's';
-        });
+        // Check URL for host ID (if scanned QR)
+        const urlParams = new URLSearchParams(window.location.search);
+        const hostId = urlParams.get('host');
 
-        // 2. File Import
-        fileInput.addEventListener('change', (e) => {
+        if (hostId) {
+            // If URL has host ID, skip landing page and go straight to Viewer
+            startApp('viewer', hostId);
+        }
+
+        function startApp(selectedRole, targetHostId = null) {
+            role = selectedRole === 'viewer-manual' ? 'viewer' : selectedRole;
+            document.getElementById('landing-overlay').style.display = 'none';
+
+            if (role === 'viewer') {
+                document.body.classList.add('viewer-mode');
+                initPeerViewer(targetHostId || prompt("Enter Host ID (or scan QR code):"));
+            } else {
+                initPeerSender();
+            }
+        }
+
+        // --- Networking (PeerJS) ---
+
+        function initPeerSender() {
+            // Create a random ID for the sender
+            peer = new Peer(null, { debug: 2 });
+
+            peer.on('open', (id) => {
+                myId = id;
+                console.log('My ID (Sender): ' + id);
+                generateQR(id);
+                updateStatus('Waiting for connection...', false);
+            });
+
+            peer.on('connection', (c) => {
+                console.log('Viewer connected');
+                connections.push(c);
+                updateStatus('Viewer Connected', true);
+                
+                // Send current photos to new viewer immediately
+                if(photos.length > 0) {
+                    c.send({ type: 'SYNC_ALL', data: photos });
+                }
+
+                // Handle data from viewer (if any needed in future)
+                c.on('data', (data) => {
+                    console.log('Received from viewer:', data);
+                });
+            });
+        }
+
+        function initPeerViewer(hostIdToConnect) {
+            if(!hostIdToConnect) {
+                alert("No Host ID provided.");
+                location.reload();
+                return;
+            }
+
+            updateStatus('Connecting to host...', false);
+            peer = new Peer(null, { debug: 2 });
+
+            peer.on('open', (id) => {
+                // Connect to the Sender
+                conn = peer.connect(hostIdToConnect, { reliable: true });
+
+                conn.on('open', () => {
+                    updateStatus('Connected to Host', true);
+                });
+
+                conn.on('data', (data) => {
+                    handleData(data);
+                });
+
+                conn.on('close', () => {
+                    alert("Host disconnected");
+                    updateStatus('Disconnected', false);
+                });
+            });
+        }
+
+        // --- Data Handling ---
+
+        function handleData(packet) {
+            if (packet.type === 'SYNC_ALL') {
+                document.getElementById('syncIcon').style.display = 'inline-block';
+                photos = packet.data;
+                renderGallery();
+                setTimeout(() => {
+                    document.getElementById('syncIcon').style.display = 'none';
+                }, 1000);
+            }
+            if (packet.type === 'ADD_PHOTO') {
+                photos.push(packet.data);
+                renderGallery();
+            }
+            if (packet.type === 'CLEAR') {
+                photos = [];
+                renderGallery();
+            }
+        }
+
+        // --- Sender Logic ---
+
+        function generateQR(id) {
+            const baseUrl = window.location.href.split('?')[0];
+            const fullLink = `${baseUrl}?host=${id}`;
+            
+            // Render QR
+            document.getElementById('qrcode').innerHTML = "";
+            new QRCode(document.getElementById('qrcode'), {
+                text: fullLink,
+                width: 180,
+                height: 180
+            });
+
+            // Set link text
+            document.getElementById('shareLink').textContent = fullLink;
+        }
+
+        function copyLink() {
+            const text = document.getElementById('shareLink').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert("Link copied to clipboard!");
+            });
+        }
+
+        // --- File Handling (Sender) ---
+
+        document.getElementById('fileInput').addEventListener('change', (e) => {
             const files = Array.from(e.target.files);
             
             files.forEach(file => {
-                if (file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        const photoObj = {
-                            id: Date.now() + Math.random(), // Unique ID
-                            src: event.target.result
-                        };
-                        photos.push(photoObj);
-                        renderGallery();
-                    };
-                    reader.readAsDataURL(file);
-                }
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const base64 = event.target.result;
+                    photos.push(base64);
+                    renderGallery();
+                    broadcast({ type: 'ADD_PHOTO', data: base64 });
+                };
+                reader.readAsDataURL(file);
             });
-            // Reset input so same file can be selected again if needed
-            fileInput.value = '';
+            // Reset input
+            document.getElementById('fileInput').value = '';
         });
 
-        // 3. Delete Photos
-        deleteBtn.addEventListener('click', () => {
-            if (selectedIds.size === 0) {
-                alert("Select photos to delete first.");
-                return;
+        function clearGallery() {
+            if(confirm("Delete all photos for everyone?")) {
+                photos = [];
+                renderGallery();
+                broadcast({ type: 'CLEAR' });
             }
-            photos = photos.filter(p => !selectedIds.has(p.id));
-            selectedIds.clear();
-            renderGallery();
-        });
+        }
 
-        // 4. Start Slideshow
-        startSlideshowBtn.addEventListener('click', () => {
-            if (photos.length === 0) {
-                alert("Import photos first!");
-                return;
-            }
-            startSlideshow();
-        });
+        function broadcast(packet) {
+            connections.forEach(c => {
+                if(c.open) c.send(packet);
+            });
+        }
 
-        // 5. Close Slideshow
-        closeSlideshowBtn.addEventListener('click', stopSlideshow);
-
-        // --- Functions ---
+        // --- UI Rendering ---
 
         function renderGallery() {
-            galleryGrid.innerHTML = '';
+            const grid = document.getElementById('galleryGrid');
+            const countLabel = document.getElementById('photoCount');
             
+            grid.innerHTML = '';
+            countLabel.textContent = `${photos.length} photo${photos.length !== 1 ? 's' : ''}`;
+
             if (photos.length === 0) {
-                galleryGrid.innerHTML = `
-                    <div style="grid-column: 1/-1; text-align: center; color: var(--text-secondary); margin-top: 50px;">
-                        <i class="fas fa-images" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-                        <p>No photos yet. Click Import to add some.</p>
-                    </div>
-                `;
+                grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:2rem; color:var(--text-secondary);">
+                    <i class="fas fa-image" style="font-size:2rem; margin-bottom:10px;"></i><br>Gallery is empty
+                </div>`;
                 return;
             }
 
-            photos.forEach(photo => {
+            photos.forEach((src, index) => {
                 const card = document.createElement('div');
-                card.className = `photo-card ${selectedIds.has(photo.id) ? 'selected' : ''}`;
-                
-                const img = document.createElement('img');
-                img.src = photo.src;
-                
-                // Toggle selection on click
-                card.onclick = () => {
-                    if (selectedIds.has(photo.id)) {
-                        selectedIds.delete(photo.id);
-                        card.classList.remove('selected');
-                    } else {
-                        selectedIds.add(photo.id);
-                        card.classList.add('selected');
-                    }
-                };
-
-                card.appendChild(img);
-                galleryGrid.appendChild(card);
-            });
-        }
-
-        function startSlideshow() {
-            slideshowOverlay.style.display = 'flex';
-            currentSlideIndex = 0;
-            const duration = parseInt(durationInput.value) * 1000;
-
-            // Show first image immediately
-            showSlide(currentSlideIndex);
-
-            // Set interval
-            slideshowInterval = setInterval(() => {
-                currentSlideIndex = (currentSlideIndex + 1) % photos.length;
-                showSlide(currentSlideIndex);
-            }, duration);
-        }
-
-        function showSlide(index) {
-            // Reset animation to trigger it again
-            slideshowImage.style.animation = 'none';
-            slideshowImage.offsetHeight; /* trigger reflow */
-            slideshowImage.style.animation = null; 
-            
-            slideshowImage.src = photos[index].src;
-        }
-
-        function stopSlideshow() {
-            clearInterval(slideshowInterval);
-            slideshowOverlay.style.display = 'none';
-        }
-        
-        // Initial Render
-        renderGallery();
-
-    </script>
-</body>
-</html>
+                card.className = 'photo-card';
+                card.innerHTML = `<i
