@@ -571,4 +571,123 @@
                         const base64 = event.target.result;
                         photos.push(base64);
                         renderGallery();
-                        broadcast({ type: 'ADD_PHOT
+                        broadcast({ type: 'ADD_PHOTO', data: base64 });
+                    };
+                    reader.readAsDataURL(file);
+                });
+                fileInput.value = ''; // Reset
+            });
+
+            function clearGallery() {
+                if(confirm("Delete all photos for everyone?")) {
+                    photos = [];
+                    renderGallery();
+                    broadcast({ type: 'CLEAR' });
+                }
+            }
+
+            function broadcast(packet) {
+                connections.forEach(c => {
+                    if(c.open) c.send(packet);
+                });
+            }
+
+            // --- Rendering ---
+            function renderGallery() {
+                const countLabel = document.getElementById('photoCount');
+                galleryGrid.innerHTML = '';
+                countLabel.textContent = `${photos.length} photo${photos.length !== 1 ? 's' : ''}`;
+
+                if (photos.length === 0) {
+                    galleryGrid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:2rem; color:var(--text-secondary);">
+                        <i class="fas fa-image" style="font-size:2rem; margin-bottom:10px;"></i><br>Gallery is empty
+                    </div>`;
+                    return;
+                }
+
+                photos.forEach((src, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'photo-card';
+                    card.innerHTML = `<img src="${src}" loading="lazy">`;
+                    card.onclick = () => openLightbox(index);
+                    galleryGrid.appendChild(card);
+                });
+            }
+
+            function updateStatus(msg, isConnected) {
+                const badge = document.getElementById('connectionStatus');
+                badge.textContent = msg;
+                if(isConnected) badge.classList.add('connected');
+                else badge.classList.remove('connected');
+            }
+
+            // --- Lightbox / Slideshow ---
+            const lightbox = document.getElementById('lightbox');
+            const lbImg = document.getElementById('lbImage');
+            const playBtnIcon = document.querySelector('#btn-play-slideshow i');
+
+            function openLightbox(index) {
+                currentIndex = index;
+                updateSlide();
+                lightbox.classList.add('active');
+            }
+
+            function closeLightbox() {
+                stopSlideshow();
+                lightbox.classList.remove('active');
+            }
+
+            function changeSlide(direction) {
+                if(photos.length === 0) return;
+                currentIndex += direction;
+                if (currentIndex >= photos.length) currentIndex = 0;
+                if (currentIndex < 0) currentIndex = photos.length - 1;
+                updateSlide();
+            }
+
+            function updateSlide() {
+                lbImg.src = photos[currentIndex];
+            }
+
+            function toggleSlideshow() {
+                if (isPlaying) stopSlideshow();
+                else startSlideshow();
+            }
+
+            function startSlideshow() {
+                isPlaying = true;
+                playBtnIcon.className = "fas fa-pause";
+                const speed = document.getElementById('speedRange').value * 1000;
+                
+                slideshowInterval = setInterval(() => {
+                    changeSlide(1);
+                }, speed);
+            }
+
+            function stopSlideshow() {
+                isPlaying = false;
+                playBtnIcon.className = "fas fa-play";
+                clearInterval(slideshowInterval);
+            }
+
+            // Speed slider
+            document.getElementById('speedRange').addEventListener('input', (e) => {
+                document.getElementById('speedDisplay').textContent = e.target.value + 's';
+                if (isPlaying) {
+                    stopSlideshow();
+                    startSlideshow();
+                }
+            });
+
+            // Keyboard support
+            document.addEventListener('keydown', (e) => {
+                if (!lightbox.classList.contains('active')) return;
+                if (e.key === 'ArrowLeft') changeSlide(-1);
+                if (e.key === 'ArrowRight') changeSlide(1);
+                if (e.key === 'Escape') closeLightbox();
+                if (e.key === ' ') toggleSlideshow();
+            });
+        });
+    </script>
+</body>
+</html>
