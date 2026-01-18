@@ -3,23 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AirGallery - Stream Photos</title>
+    <title>AirGallery - PC Host</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     
     <style>
         :root {
-            --bg-color: #121212;
-            --surface-color: #1e1e1e;
-            --primary-color: #bb86fc;
-            --text-color: #ffffff;
-            --text-secondary: #b0b0b0;
+            --bg-color: #0f172a; /* Dark Slate */
+            --surface-color: #1e293b;
+            --accent-color: #38bdf8; /* Sky Blue */
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background-color: var(--bg-color);
-            color: var(--text-color);
+            color: var(--text-primary);
             margin: 0;
             display: flex;
             flex-direction: column;
@@ -27,104 +27,106 @@
             min-height: 100vh;
         }
 
+        /* --- Header --- */
         header {
             width: 100%;
             padding: 20px;
-            background-color: var(--surface-color);
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #334155;
             text-align: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
             position: sticky;
             top: 0;
-            z-index: 100;
+            z-index: 50;
         }
+        h1 { margin: 0; font-weight: 600; letter-spacing: -0.5px; }
 
-        h1 { margin: 0; font-size: 1.5rem; letter-spacing: 1px; }
-
+        /* --- Main Layout --- */
         .container {
             width: 90%;
-            max-width: 1200px;
-            margin-top: 30px;
+            max-width: 1000px;
+            margin-top: 40px;
             text-align: center;
+            flex-grow: 1;
         }
 
-        /* Mode Selection / Panels */
-        .panel { display: none; animation: fadein 0.5s; }
+        .panel { display: none; animation: slideUp 0.4s ease-out; }
         .panel.active { display: block; }
 
-        /* Buttons */
-        .btn {
-            background-color: var(--primary-color);
-            color: #000;
-            border: none;
-            padding: 12px 24px;
-            font-size: 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: transform 0.2s, opacity 0.2s;
-            margin: 10px;
-        }
-        .btn:active { transform: scale(0.96); }
-        .btn-file { position: relative; overflow: hidden; display: inline-block; }
-        .btn-file input[type=file] {
-            position: absolute; top: 0; right: 0; min-width: 100%; min-height: 100%;
-            font-size: 100px; text-align: right; filter: alpha(opacity=0); opacity: 0;
-            outline: none; background: white; cursor: inherit; display: block;
-        }
-
-        /* QR Code Area */
-        #qrcode {
+        /* --- PC Host UI --- */
+        #qr-container {
             background: white;
-            padding: 15px;
+            padding: 20px;
+            border-radius: 16px;
             display: inline-block;
-            border-radius: 10px;
             margin: 20px 0;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
         }
 
-        /* Gallery Grid */
-        .gallery {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
+        .instruction { font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 20px; }
 
-        .gallery-item {
-            background-color: var(--surface-color);
-            border-radius: 8px;
-            overflow: hidden;
-            aspect-ratio: 1;
-            position: relative;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-
-        .gallery-item img {
+        /* --- Phone Client UI --- */
+        .mobile-btn {
+            background: var(--accent-color);
+            color: #0f172a;
             width: 100%;
-            height: 100%;
-            object-fit: cover;
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border: none;
+            margin-top: 20px;
             cursor: pointer;
-            transition: transform 0.3s;
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        .mobile-btn input {
+            position: absolute; top:0; left:0; width:100%; height:100%; opacity:0;
+        }
+        .mobile-btn:active { transform: scale(0.98); }
+
+        /* --- Gallery Grid --- */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            padding-bottom: 50px;
+        }
+        
+        .photo-card {
+            background: var(--surface-color);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            aspect-ratio: 1;
+            transition: transform 0.2s;
+            border: 1px solid #334155;
+        }
+        .photo-card:hover { transform: translateY(-5px); border-color: var(--accent-color); }
+        
+        .photo-card img {
+            width: 100%; height: 100%; object-fit: cover; cursor: pointer;
         }
 
-        .gallery-item img:hover { transform: scale(1.05); }
-
-        .status { color: var(--text-secondary); margin-bottom: 20px; font-style: italic; }
-
-        /* Fullscreen Viewer */
-        #viewer {
-            display: none; position: fixed; z-index: 1000; left: 0; top: 0;
-            width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.95);
+        /* --- Fullscreen Modal --- */
+        #modal {
+            display: none; position: fixed; inset: 0; 
+            background: rgba(0,0,0,0.95); z-index: 100;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s;
         }
-        #viewer-img {
-            margin: auto; display: block; max-width: 90%; max-height: 90vh;
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        }
-        #close-viewer {
-            position: absolute; top: 15px; right: 35px; color: #f1f1f1;
-            font-size: 40px; font-weight: bold; cursor: pointer;
+        #modal.open { opacity: 1; pointer-events: all; }
+        #modal img { max-width: 95%; max-height: 95vh; box-shadow: 0 0 50px rgba(0,0,0,0.5); }
+        #modal-close {
+            position: absolute; top: 20px; right: 30px; 
+            color: white; font-size: 2rem; cursor: pointer;
         }
 
-        @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -134,77 +136,73 @@
 </header>
 
 <div class="container">
-    
-    <div id="init-panel" class="panel active">
-        <p class="status">Initializing secure connection...</p>
+
+    <div id="p-loading" class="panel active">
+        <p class="instruction">Establishing secure channel...</p>
     </div>
 
-    <div id="sender-panel" class="panel">
-        <h2>Host Gallery</h2>
-        <p class="status">Scan this code with your PC to connect.</p>
-        <div id="qrcode"></div>
-        <p>Or share this link:<br><small id="share-link" style="color:var(--primary-color); word-break:break-all;"></small></p>
-        <hr style="border-color: #333; margin: 20px 0;">
-        
-        <div id="upload-section" style="opacity: 0.5; pointer-events: none;">
-            <p>Waiting for PC to connect...</p>
+    <div id="p-host" class="panel">
+        <h2>Scan to Connect</h2>
+        <p class="instruction">Open your phone camera and scan this code.</p>
+        <div id="qr-container"><div id="qrcode"></div></div>
+        <p style="font-size: 0.9rem; color: #64748b;">Waiting for phone...</p>
+    </div>
+
+    <div id="p-gallery" class="panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2>Your Photos</h2>
+            <span style="color: #4ade80; font-size: 0.9rem;">● Phone Connected</span>
         </div>
-        
-        <div id="sender-controls" style="display:none;">
-            <p style="color: #4caf50;">✔ PC Connected!</p>
-            <div class="btn btn-file">
-                Select Photos to Stream
-                <input type="file" id="file-input" multiple accept="image/*">
-            </div>
-            <p class="status" id="sender-status">0 photos sent</p>
+        <div class="gallery-grid" id="grid"></div>
+        <div id="empty-state" class="instruction">
+            Photos selected on your phone will appear here instantly.
         </div>
     </div>
 
-    <div id="receiver-panel" class="panel">
-        <h2>Viewing Gallery</h2>
-        <p class="status" id="receiver-status">Waiting for host to select photos...</p>
-        <div class="gallery" id="gallery-grid"></div>
+    <div id="p-client" class="panel">
+        <h2>Connected to PC</h2>
+        <p class="instruction">Tap below to stream photos to your computer.</p>
+        
+        <div class="mobile-btn">
+            + Select Photos
+            <input type="file" id="file-input" multiple accept="image/*">
+        </div>
+
+        <div style="margin-top: 30px; text-align: left;">
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">Upload History:</p>
+            <ul id="upload-logs" style="list-style: none; padding: 0; color: #4ade80;"></ul>
+        </div>
     </div>
 
 </div>
 
-<div id="viewer">
-    <span id="close-viewer">&times;</span>
-    <img id="viewer-img">
+<div id="modal">
+    <div id="modal-close">&times;</div>
+    <img id="modal-img">
 </div>
 
 <script>
-    // --- Logic ---
+    // --- Configuration ---
+    // If the URL has "?host=...", this device is the PHONE (Client).
+    // If not, this device is the PC (Host).
     const urlParams = new URLSearchParams(window.location.search);
-    const hostId = urlParams.get('host');
-    const isReceiver = !!hostId;
+    const targetHostId = urlParams.get('host');
+    const isClient = !!targetHostId;
 
-    let peer;
-    let conn;
+    const peer = new Peer(null, { debug: 1 });
+    let conn = null;
 
-    // DOM Elements
-    const panels = {
-        init: document.getElementById('init-panel'),
-        sender: document.getElementById('sender-panel'),
-        receiver: document.getElementById('receiver-panel')
-    };
-
-    function showPanel(name) {
-        Object.values(panels).forEach(p => p.classList.remove('active'));
-        panels[name].classList.add('active');
+    // --- Routing ---
+    function showPanel(id) {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
     }
 
-    // Initialize PeerJS
-    // Note: We use the default public PeerJS cloud server.
-    peer = new Peer(null, { debug: 2 });
-
-    peer.on('open', (id) => {
-        console.log('My Peer ID is: ' + id);
-        
-        if (isReceiver) {
-            startReceiver(id);
+    peer.on('open', (myId) => {
+        if (isClient) {
+            initClient(myId);
         } else {
-            startSender(id);
+            initHost(myId);
         }
     });
 
@@ -212,113 +210,121 @@
         alert("Connection Error: " + err.type);
     });
 
-    // --- SENDER LOGIC (Phone) ---
-    function startSender(id) {
-        showPanel('sender');
-        
-        // Generate Link & QR
-        const link = `${window.location.origin}${window.location.pathname}?host=${id}`;
-        document.getElementById('share-link').innerText = link;
-        
+    // ==========================================
+    //  PC LOGIC (Host)
+    // ==========================================
+    function initHost(myId) {
+        showPanel('p-host');
+
+        // Generate QR Code
+        const link = `${window.location.origin}${window.location.pathname}?host=${myId}`;
         new QRCode(document.getElementById("qrcode"), {
             text: link,
-            width: 180,
-            height: 180
+            width: 200,
+            height: 200,
+            colorDark : "#000000",
+            colorLight : "#ffffff",
+            correctLevel : QRCode.CorrectLevel.H
         });
 
-        // Wait for connection
+        // Listen for incoming connection from Phone
         peer.on('connection', (c) => {
             conn = c;
-            setupSenderConnection();
+            
+            conn.on('open', () => {
+                showPanel('p-gallery');
+            });
+
+            conn.on('data', (data) => {
+                if(data.file) {
+                    addToGallery(data.file);
+                }
+            });
+
+            conn.on('close', () => {
+                alert("Phone disconnected. Refresh to reconnect.");
+                location.reload();
+            });
         });
     }
 
-    function setupSenderConnection() {
+    function addToGallery(fileBlob) {
+        document.getElementById('empty-state').style.display = 'none';
+        
+        const blobUrl = URL.createObjectURL(new Blob([fileBlob]));
+        const grid = document.getElementById('grid');
+        
+        const card = document.createElement('div');
+        card.className = 'photo-card';
+        
+        const img = document.createElement('img');
+        img.src = blobUrl;
+        img.onclick = () => openModal(blobUrl);
+        
+        card.appendChild(img);
+        grid.prepend(card); // Add to top
+    }
+
+    // ==========================================
+    //  PHONE LOGIC (Client)
+    // ==========================================
+    function initClient(myId) {
+        // Connect to the PC Host ID found in URL
+        conn = peer.connect(targetHostId);
+
         conn.on('open', () => {
-            const uploadSection = document.getElementById('upload-section');
-            const senderControls = document.getElementById('sender-controls');
-            
-            uploadSection.style.display = 'none';
-            senderControls.style.display = 'block';
+            showPanel('p-client');
         });
 
         conn.on('close', () => {
             alert("PC Disconnected");
-            location.reload();
+        });
+
+        conn.on('error', (err) => {
+            alert("Could not connect to PC.");
         });
     }
 
-    // Handle File Selection
+    // Handle File Input on Phone
     document.getElementById('file-input').addEventListener('change', (e) => {
-        const files = e.target.files;
-        if (!conn || !conn.open) return alert("Connection lost!");
+        const files = Array.from(e.target.files);
+        const logs = document.getElementById('upload-logs');
 
-        let sentCount = 0;
-        const status = document.getElementById('sender-status');
-
-        Array.from(files).forEach(file => {
-            // Send file object. PeerJS handles binary serialization automatically.
-            // We wrap it to send metadata (like file type) easily.
+        files.forEach(file => {
+            // Send file to PC
             conn.send({
                 file: file,
                 name: file.name,
                 type: file.type
             });
-            sentCount++;
-            status.innerText = `Streamed ${sentCount} photos...`;
+
+            // Update Phone UI
+            const li = document.createElement('li');
+            li.textContent = `✔ Sent: ${file.name}`;
+            logs.prepend(li);
         });
     });
 
-    // --- RECEIVER LOGIC (PC) ---
-    function startReceiver(myId) {
-        showPanel('receiver');
-        document.getElementById('receiver-status').innerText = "Connecting to phone...";
-
-        conn = peer.connect(hostId);
-
-        conn.on('open', () => {
-            document.getElementById('receiver-status').innerText = "Connected! Select photos on your phone to view them here.";
-        });
-
-        conn.on('data', (data) => {
-            if (data.file) {
-                renderImage(data.file);
-            }
-        });
-        
-        conn.on('close', () => {
-            alert("Host disconnected");
-        });
+    // ==========================================
+    //  MODAL LOGIC
+    // ==========================================
+    const modal = document.getElementById('modal');
+    const modalImg = document.getElementById('modal-img');
+    
+    function openModal(src) {
+        modalImg.src = src;
+        modal.classList.add('open');
     }
 
-    function renderImage(fileBlob) {
-        const blobUrl = URL.createObjectURL(new Blob([fileBlob]));
-        
-        const div = document.createElement('div');
-        div.className = 'gallery-item';
-        
-        const img = document.createElement('img');
-        img.src = blobUrl;
-        img.onclick = () => openViewer(blobUrl);
-        
-        div.appendChild(img);
-        document.getElementById('gallery-grid').prepend(div);
+    document.getElementById('modal-close').onclick = () => {
+        modal.classList.remove('open');
+    };
+    
+    // Close on background click
+    modal.onclick = (e) => {
+        if(e.target === modal) modal.classList.remove('open');
     }
 
-    // --- Viewer Logic ---
-    const viewer = document.getElementById('viewer');
-    const viewerImg = document.getElementById('viewer-img');
-    const closeViewer = document.getElementById('close-viewer');
-
-    function openViewer(src) {
-        viewer.style.display = "block";
-        viewerImg.src = src;
-    }
-
-    closeViewer.onclick = function() {
-        viewer.style.display = "none";
-    }
 </script>
-
 </body>
 </html>
