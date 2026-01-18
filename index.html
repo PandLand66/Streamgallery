@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AirGallery - PC Host</title>
+    <title>AirGallery Pro</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     
     <style>
         :root {
-            --bg-color: #0f172a; /* Dark Slate */
+            --bg-color: #0f172a;
             --surface-color: #1e293b;
-            --accent-color: #38bdf8; /* Sky Blue */
+            --accent-color: #38bdf8;
             --text-primary: #f8fafc;
             --text-secondary: #94a3b8;
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Inter', -apple-system, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-primary);
             margin: 0;
@@ -25,13 +25,14 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
+            overflow-x: hidden;
         }
 
         /* --- Header --- */
         header {
             width: 100%;
             padding: 20px;
-            background: rgba(30, 41, 59, 0.8);
+            background: rgba(30, 41, 59, 0.9);
             backdrop-filter: blur(10px);
             border-bottom: 1px solid #334155;
             text-align: center;
@@ -39,158 +40,183 @@
             top: 0;
             z-index: 50;
         }
-        h1 { margin: 0; font-weight: 600; letter-spacing: -0.5px; }
 
-        /* --- Main Layout --- */
+        /* --- Layout --- */
         .container {
             width: 90%;
-            max-width: 1000px;
-            margin-top: 40px;
+            max-width: 1200px;
+            margin-top: 30px;
             text-align: center;
             flex-grow: 1;
         }
 
-        .panel { display: none; animation: slideUp 0.4s ease-out; }
+        .panel { display: none; animation: fadeIn 0.4s ease-out; }
         .panel.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* --- PC Host UI --- */
+        /* --- Host UI (PC) --- */
         #qr-container {
-            background: white;
-            padding: 20px;
-            border-radius: 16px;
-            display: inline-block;
-            margin: 20px 0;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            background: white; padding: 20px; border-radius: 16px;
+            display: inline-block; margin: 20px 0;
         }
-
-        .instruction { font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 20px; }
-
-        /* --- Phone Client UI --- */
-        .mobile-btn {
-            background: var(--accent-color);
-            color: #0f172a;
-            width: 100%;
-            padding: 20px;
-            border-radius: 12px;
-            font-size: 1.2rem;
-            font-weight: bold;
-            border: none;
-            margin-top: 20px;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
-            position: relative;
-            overflow: hidden;
-        }
-        .mobile-btn input {
-            position: absolute; top:0; left:0; width:100%; height:100%; opacity:0;
-        }
-        .mobile-btn:active { transform: scale(0.98); }
 
         /* --- Gallery Grid --- */
         .gallery-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 15px;
             padding-bottom: 50px;
         }
         
-        .photo-card {
+        .media-card {
             background: var(--surface-color);
             border-radius: 12px;
             overflow: hidden;
             position: relative;
             aspect-ratio: 1;
-            transition: transform 0.2s;
+            cursor: pointer;
             border: 1px solid #334155;
+            transition: transform 0.2s;
         }
-        .photo-card:hover { transform: translateY(-5px); border-color: var(--accent-color); }
+        .media-card:hover { transform: scale(1.03); border-color: var(--accent-color); }
         
-        .photo-card img {
-            width: 100%; height: 100%; object-fit: cover; cursor: pointer;
+        .media-card img, .media-card video {
+            width: 100%; height: 100%; object-fit: cover; pointer-events: none;
         }
 
-        /* --- Fullscreen Modal --- */
-        #modal {
+        .video-indicator {
+            position: absolute; top: 8px; right: 8px;
+            background: rgba(0,0,0,0.6); color: white;
+            padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;
+        }
+
+        /* --- Client UI (Phone) --- */
+        .mobile-btn {
+            background: var(--accent-color); color: #0f172a;
+            width: 100%; padding: 25px; border-radius: 16px;
+            font-size: 1.3rem; font-weight: bold; border: none;
+            margin-top: 20px; cursor: pointer; position: relative; overflow: hidden;
+        }
+        .mobile-btn input {
+            position: absolute; top:0; left:0; width:100%; height:100%; opacity:0;
+        }
+
+        /* --- Fullscreen Viewer with Zoom & Nav --- */
+        #viewer {
             display: none; position: fixed; inset: 0; 
             background: rgba(0,0,0,0.95); z-index: 100;
-            display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.3s;
+            flex-direction: column; justify-content: center; align-items: center;
         }
-        #modal.open { opacity: 1; pointer-events: all; }
-        #modal img { max-width: 95%; max-height: 95vh; box-shadow: 0 0 50px rgba(0,0,0,0.5); }
-        #modal-close {
-            position: absolute; top: 20px; right: 30px; 
-            color: white; font-size: 2rem; cursor: pointer;
+        #viewer.active { display: flex; }
+
+        /* Media Container (Where zoom happens) */
+        #viewer-content {
+            position: relative;
+            max-width: 90vw; max-height: 80vh;
+            transition: transform 0.2s ease;
+        }
+        #viewer-content img, #viewer-content video {
+            max-width: 100%; max-height: 80vh; display: block;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
         }
 
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+        /* Controls */
+        .nav-btn {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            background: rgba(255,255,255,0.1); color: white;
+            border: none; padding: 20px; font-size: 2rem; cursor: pointer;
+            border-radius: 50%; transition: background 0.2s;
+            user-select: none;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.3); }
+        #prev-btn { left: 20px; }
+        #next-btn { right: 20px; }
+
+        .toolbar {
+            position: absolute; bottom: 30px;
+            display: flex; gap: 10px;
+            background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 30px;
+        }
+        .tool-btn {
+            background: none; border: 1px solid rgba(255,255,255,0.3);
+            color: white; padding: 8px 16px; border-radius: 20px;
+            cursor: pointer; font-size: 0.9rem;
+        }
+        .tool-btn:hover { background: rgba(255,255,255,0.2); }
+
+        #close-viewer {
+            position: absolute; top: 20px; right: 30px; 
+            color: white; font-size: 3rem; cursor: pointer; z-index: 200;
         }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>AirGallery</h1>
+    <h1>AirGallery Pro</h1>
 </header>
 
 <div class="container">
 
     <div id="p-loading" class="panel active">
-        <p class="instruction">Establishing secure channel...</p>
+        <p>Starting secure server...</p>
     </div>
 
     <div id="p-host" class="panel">
         <h2>Scan to Connect</h2>
-        <p class="instruction">Open your phone camera and scan this code.</p>
         <div id="qr-container"><div id="qrcode"></div></div>
-        <p style="font-size: 0.9rem; color: #64748b;">Waiting for phone...</p>
+        <p style="color: var(--text-secondary)">Scan with your phone to upload media</p>
     </div>
 
     <div id="p-gallery" class="panel">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <h2>Your Photos</h2>
-            <span style="color: #4ade80; font-size: 0.9rem;">● Phone Connected</span>
+        <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+            <h2>Library</h2>
+            <span style="color: #4ade80;">● Connected</span>
         </div>
         <div class="gallery-grid" id="grid"></div>
-        <div id="empty-state" class="instruction">
-            Photos selected on your phone will appear here instantly.
+        <div id="empty-state" style="color: var(--text-secondary); margin-top: 50px;">
+            No media yet. Select photos or videos on your phone.
         </div>
     </div>
 
     <div id="p-client" class="panel">
-        <h2>Connected to PC</h2>
-        <p class="instruction">Tap below to stream photos to your computer.</p>
-        
+        <h2>Connected!</h2>
         <div class="mobile-btn">
-            + Select Photos
-            <input type="file" id="file-input" multiple accept="image/*">
+            + Upload Media
+            <input type="file" id="file-input" multiple accept="image/*,video/*">
         </div>
-
-        <div style="margin-top: 30px; text-align: left;">
-            <p style="color: var(--text-secondary); font-size: 0.9rem;">Upload History:</p>
-            <ul id="upload-logs" style="list-style: none; padding: 0; color: #4ade80;"></ul>
-        </div>
+        <ul id="upload-logs" style="list-style:none; padding:0; margin-top:30px; text-align:left; color:#4ade80;"></ul>
     </div>
 
 </div>
 
-<div id="modal">
-    <div id="modal-close">&times;</div>
-    <img id="modal-img">
+<div id="viewer">
+    <div id="close-viewer">&times;</div>
+    
+    <button class="nav-btn" id="prev-btn">❮</button>
+    <button class="nav-btn" id="next-btn">❯</button>
+
+    <div id="viewer-content"></div>
+
+    <div class="toolbar">
+        <button class="tool-btn" onclick="adjustZoom(-0.2)">- Zoom</button>
+        <button class="tool-btn" onclick="resetZoom()">Reset</button>
+        <button class="tool-btn" onclick="adjustZoom(0.2)">+ Zoom</button>
+    </div>
 </div>
 
 <script>
-    // --- Configuration ---
-    // If the URL has "?host=...", this device is the PHONE (Client).
-    // If not, this device is the PC (Host).
+    // --- State Management ---
     const urlParams = new URLSearchParams(window.location.search);
     const targetHostId = urlParams.get('host');
     const isClient = !!targetHostId;
-
     const peer = new Peer(null, { debug: 1 });
     let conn = null;
+
+    // Gallery State
+    let galleryItems = []; // Stores { type: 'image'|'video', url: 'blob:...' }
+    let currentIndex = 0;
+    let currentZoom = 1;
 
     // --- Routing ---
     function showPanel(id) {
@@ -198,107 +224,85 @@
         document.getElementById(id).classList.add('active');
     }
 
-    peer.on('open', (myId) => {
-        if (isClient) {
-            initClient(myId);
-        } else {
-            initHost(myId);
-        }
-    });
-
-    peer.on('error', (err) => {
-        alert("Connection Error: " + err.type);
+    // --- PeerJS Init ---
+    peer.on('open', (id) => {
+        isClient ? initClient(id) : initHost(id);
     });
 
     // ==========================================
-    //  PC LOGIC (Host)
+    //  PC HOST LOGIC
     // ==========================================
     function initHost(myId) {
         showPanel('p-host');
-
-        // Generate QR Code
+        // Generate QR
         const link = `${window.location.origin}${window.location.pathname}?host=${myId}`;
-        new QRCode(document.getElementById("qrcode"), {
-            text: link,
-            width: 200,
-            height: 200,
-            colorDark : "#000000",
-            colorLight : "#ffffff",
-            correctLevel : QRCode.CorrectLevel.H
-        });
+        new QRCode(document.getElementById("qrcode"), { text: link, width: 200, height: 200 });
 
-        // Listen for incoming connection from Phone
         peer.on('connection', (c) => {
             conn = c;
-            
-            conn.on('open', () => {
-                showPanel('p-gallery');
-            });
-
+            conn.on('open', () => showPanel('p-gallery'));
             conn.on('data', (data) => {
-                if(data.file) {
-                    addToGallery(data.file);
-                }
+                if(data.file) addToGallery(data.file, data.type);
             });
-
-            conn.on('close', () => {
-                alert("Phone disconnected. Refresh to reconnect.");
-                location.reload();
-            });
+            conn.on('close', () => alert("Phone disconnected"));
         });
     }
 
-    function addToGallery(fileBlob) {
+    function addToGallery(fileBlob, fileType) {
         document.getElementById('empty-state').style.display = 'none';
         
-        const blobUrl = URL.createObjectURL(new Blob([fileBlob]));
+        const blobUrl = URL.createObjectURL(new Blob([fileBlob], { type: fileType }));
+        const isVideo = fileType.startsWith('video');
+        
+        // Add to Data Store
+        const itemIndex = galleryItems.length;
+        galleryItems.push({
+            url: blobUrl,
+            type: isVideo ? 'video' : 'image'
+        });
+
+        // Add to DOM (Thumbnail)
         const grid = document.getElementById('grid');
-        
         const card = document.createElement('div');
-        card.className = 'photo-card';
+        card.className = 'media-card';
+        card.onclick = () => openViewer(itemIndex);
+
+        if (isVideo) {
+            const vid = document.createElement('video');
+            vid.src = blobUrl;
+            vid.muted = true; // Auto-play muted for thumbnail effect
+            // vid.play(); // Optional: play on hover or load
+            
+            const badge = document.createElement('div');
+            badge.className = 'video-indicator';
+            badge.innerText = '▶ Video';
+            
+            card.appendChild(badge);
+            card.appendChild(vid);
+        } else {
+            const img = document.createElement('img');
+            img.src = blobUrl;
+            card.appendChild(img);
+        }
         
-        const img = document.createElement('img');
-        img.src = blobUrl;
-        img.onclick = () => openModal(blobUrl);
-        
-        card.appendChild(img);
-        grid.prepend(card); // Add to top
+        grid.appendChild(card); // Add to end (chronological)
     }
 
     // ==========================================
-    //  PHONE LOGIC (Client)
+    //  PHONE CLIENT LOGIC
     // ==========================================
     function initClient(myId) {
-        // Connect to the PC Host ID found in URL
         conn = peer.connect(targetHostId);
-
-        conn.on('open', () => {
-            showPanel('p-client');
-        });
-
-        conn.on('close', () => {
-            alert("PC Disconnected");
-        });
-
-        conn.on('error', (err) => {
-            alert("Could not connect to PC.");
-        });
+        conn.on('open', () => showPanel('p-client'));
+        conn.on('error', () => alert("Connection Failed"));
     }
 
-    // Handle File Input on Phone
     document.getElementById('file-input').addEventListener('change', (e) => {
         const files = Array.from(e.target.files);
         const logs = document.getElementById('upload-logs');
 
         files.forEach(file => {
-            // Send file to PC
-            conn.send({
-                file: file,
-                name: file.name,
-                type: file.type
-            });
-
-            // Update Phone UI
+            conn.send({ file: file, name: file.name, type: file.type });
             const li = document.createElement('li');
             li.textContent = `✔ Sent: ${file.name}`;
             logs.prepend(li);
@@ -306,24 +310,89 @@
     });
 
     // ==========================================
-    //  MODAL LOGIC
+    //  VIEWER LOGIC (Zoom, Video, Nav)
     // ==========================================
-    const modal = document.getElementById('modal');
-    const modalImg = document.getElementById('modal-img');
-    
-    function openModal(src) {
-        modalImg.src = src;
-        modal.classList.add('open');
+    const viewer = document.getElementById('viewer');
+    const contentBox = document.getElementById('viewer-content');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+
+    function openViewer(index) {
+        currentIndex = index;
+        viewer.classList.add('active');
+        renderViewerContent();
     }
 
-    document.getElementById('modal-close').onclick = () => {
-        modal.classList.remove('open');
-    };
-    
-    // Close on background click
-    modal.onclick = (e) => {
-        if(e.target === modal) modal.classList.remove('open');
+    function renderViewerContent() {
+        // Reset Zoom
+        currentZoom = 1;
+        updateZoom();
+
+        // Clear previous
+        contentBox.innerHTML = '';
+        
+        const item = galleryItems[currentIndex];
+        
+        if (item.type === 'video') {
+            const vid = document.createElement('video');
+            vid.src = item.url;
+            vid.controls = true;
+            vid.autoplay = true;
+            vid.style.maxWidth = "100%";
+            vid.style.maxHeight = "80vh";
+            contentBox.appendChild(vid);
+        } else {
+            const img = document.createElement('img');
+            img.src = item.url;
+            contentBox.appendChild(img);
+        }
+
+        // Handle Nav Button Visibility
+        prevBtn.style.display = currentIndex > 0 ? 'block' : 'none';
+        nextBtn.style.display = currentIndex < galleryItems.length - 1 ? 'block' : 'none';
     }
+
+    // Navigation
+    function changeSlide(direction) {
+        const newIndex = currentIndex + direction;
+        if (newIndex >= 0 && newIndex < galleryItems.length) {
+            currentIndex = newIndex;
+            renderViewerContent();
+        }
+    }
+    prevBtn.onclick = (e) => { e.stopPropagation(); changeSlide(-1); };
+    nextBtn.onclick = (e) => { e.stopPropagation(); changeSlide(1); };
+
+    // Keyboard Nav
+    document.addEventListener('keydown', (e) => {
+        if (!viewer.classList.contains('active')) return;
+        if (e.key === 'ArrowLeft') changeSlide(-1);
+        if (e.key === 'ArrowRight') changeSlide(1);
+        if (e.key === 'Escape') closeViewer();
+    });
+
+    // Zoom Logic
+    function adjustZoom(delta) {
+        currentZoom += delta;
+        if (currentZoom < 0.5) currentZoom = 0.5; // Min limit
+        if (currentZoom > 4) currentZoom = 4;     // Max limit
+        updateZoom();
+    }
+    function resetZoom() {
+        currentZoom = 1;
+        updateZoom();
+    }
+    function updateZoom() {
+        // Apply transform to the container holding the img/video
+        contentBox.style.transform = `scale(${currentZoom})`;
+    }
+
+    // Close
+    function closeViewer() {
+        viewer.classList.remove('active');
+        contentBox.innerHTML = ''; // Stop video playback
+    }
+    document.getElementById('close-viewer').onclick = closeViewer;
 
 </script>
 </body>
