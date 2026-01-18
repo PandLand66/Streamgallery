@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AirGallery V5 (Date & Drag)</title>
+    <title>AirGallery V6 (Unlimited Zoom)</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -29,7 +29,6 @@
             overflow: hidden;
         }
 
-        /* --- Header --- */
         header {
             width: 100%;
             padding: 15px;
@@ -39,7 +38,6 @@
             z-index: 50;
         }
 
-        /* --- Main Scrollable Area --- */
         .main-scroll {
             width: 100%;
             flex-grow: 1;
@@ -60,13 +58,11 @@
         .panel.active { display: block; animation: fade 0.3s; }
         @keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* --- Host UI (PC) --- */
         #qr-container {
             background: white; padding: 15px; border-radius: 12px;
             display: inline-block; margin: 20px 0;
         }
 
-        /* --- Gallery Grid --- */
         .gallery-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -90,7 +86,6 @@
             width: 100%; height: 100%; object-fit: cover; pointer-events: none;
         }
 
-        /* Date Badge on Grid */
         .date-badge {
             position: absolute; bottom: 0; left: 0; width: 100%;
             background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
@@ -106,7 +101,6 @@
             text-shadow: 0 2px 5px rgba(0,0,0,0.5);
         }
 
-        /* --- Client UI (Phone) --- */
         .mobile-btn {
             background: var(--accent-color); color: #0f172a;
             width: 100%; padding: 25px; border-radius: 16px;
@@ -117,7 +111,6 @@
             position: absolute; top:0; left:0; width:100%; height:100%; opacity:0;
         }
 
-        /* --- Fullscreen Viewer --- */
         #viewer {
             display: none; position: fixed; inset: 0; 
             background: rgba(0,0,0,0.95); z-index: 100;
@@ -135,23 +128,20 @@
         #prev-btn { left: 20px; }
         #next-btn { right: 20px; }
 
-        /* Media Container (For Zoom & Drag) */
         #viewer-content {
             position: relative;
             max-width: 90vw; max-height: 80vh;
             display: flex; justify-content: center; align-items: center;
-            /* Transition removed for smoother dragging */
             cursor: default; 
         }
         
-        /* Drag cursors */
         #viewer-content.can-drag { cursor: grab; }
         #viewer-content.is-dragging { cursor: grabbing; }
 
         #viewer-content img, #viewer-content video {
             max-width: 100%; max-height: 80vh; 
             box-shadow: 0 0 30px rgba(0,0,0,0.5);
-            pointer-events: none; /* Let container handle drag events */
+            pointer-events: none; 
         }
 
         .toolbar {
@@ -184,7 +174,7 @@
 <body>
 
 <header>
-    <h3>AirGallery V5</h3>
+    <h3>AirGallery V6</h3>
 </header>
 
 <div class="main-scroll">
@@ -244,18 +234,15 @@
 </div>
 
 <script>
-    // --- Setup ---
     const urlParams = new URLSearchParams(window.location.search);
     const hostId = urlParams.get('host');
     const isClient = !!hostId;
     const peer = new Peer(null, { debug: 1 });
     let conn = null;
 
-    // Gallery State
     let galleryItems = []; 
     let currentIndex = 0;
     
-    // Zoom & Pan State
     let currentZoom = 1;
     let translateX = 0;
     let translateY = 0;
@@ -263,7 +250,6 @@
     let startX = 0;
     let startY = 0;
 
-    // --- PeerJS Init ---
     peer.on('open', (id) => {
         isClient ? initClient(id) : initHost(id);
     });
@@ -273,9 +259,6 @@
         document.getElementById(id).classList.add('active');
     }
 
-    // ==========================================
-    //  HOST (PC) LOGIC
-    // ==========================================
     function initHost(myId) {
         showPanel('p-host');
         const link = `${window.location.origin}${window.location.pathname}?host=${myId}`;
@@ -297,12 +280,10 @@
     function addToGallery(fileData, fileName, fileType, fileDate) {
         document.getElementById('empty-state').style.display = 'none';
         
-        // Wrap raw data in Blob
         const blob = new Blob([fileData], { type: fileType });
         const blobUrl = URL.createObjectURL(blob);
         const isVideo = fileType.startsWith('video');
 
-        // Format Date
         const dateObj = new Date(fileDate);
         const dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
@@ -315,7 +296,6 @@
 
         const index = galleryItems.length - 1;
 
-        // Render Card
         const grid = document.getElementById('grid');
         const card = document.createElement('div');
         card.className = 'media-card';
@@ -336,7 +316,6 @@
             card.appendChild(img);
         }
 
-        // Add Date Badge
         const dateBadge = document.createElement('div');
         dateBadge.className = 'date-badge';
         dateBadge.innerText = dateStr;
@@ -345,9 +324,6 @@
         grid.appendChild(card);
     }
 
-    // ==========================================
-    //  CLIENT (PHONE) LOGIC
-    // ==========================================
     function initClient(myId) {
         conn = peer.connect(hostId);
         conn.on('open', () => showPanel('p-client'));
@@ -363,7 +339,7 @@
                 file: file, 
                 name: file.name, 
                 type: file.type,
-                date: file.lastModified // Send timestamp
+                date: file.lastModified
             });
             
             const li = document.createElement('li');
@@ -372,9 +348,6 @@
         });
     });
 
-    // ==========================================
-    //  VIEWER: ZOOM + DRAG + NAV
-    // ==========================================
     const viewer = document.getElementById('viewer');
     const contentBox = document.getElementById('viewer-content');
 
@@ -386,12 +359,11 @@
     }
 
     function renderViewerContent() {
-        resetZoom(); // Reset position and scale
+        resetZoom(); 
         contentBox.innerHTML = '';
         
         const item = galleryItems[currentIndex];
         
-        // Update Info
         document.getElementById('viewer-counter').innerText = `${currentIndex + 1} / ${galleryItems.length}`;
         document.getElementById('viewer-date').innerText = item.date;
 
@@ -411,7 +383,6 @@
         updateNavButtons();
     }
 
-    // --- Navigation ---
     function changeSlide(dir) {
         const newIndex = currentIndex + dir;
         if (newIndex >= 0 && newIndex < galleryItems.length) {
@@ -435,13 +406,16 @@
         else if (e.key === 'Escape') closeViewer();
     });
 
-    // --- Zoom & Drag Logic ---
+    // --- Unlimited Zoom Logic ---
     function zoom(amount) {
         currentZoom += amount;
-        if (currentZoom < 0.5) currentZoom = 0.5;
-        if (currentZoom > 5) currentZoom = 5;
         
-        // If zoomed out completely, reset position
+        // Lower limit keeps image visible (0.1x)
+        if (currentZoom < 0.1) currentZoom = 0.1;
+        
+        // REMOVED UPPER LIMIT HERE to allow infinite zoom
+        
+        // If zoomed out completely, reset position to center
         if (currentZoom <= 1) {
             currentZoom = 1;
             translateX = 0;
@@ -460,7 +434,6 @@
     function updateTransform() {
         contentBox.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentZoom})`;
         
-        // Cursor management
         if (currentZoom > 1) {
             contentBox.classList.add('can-drag');
         } else {
@@ -468,13 +441,12 @@
         }
     }
 
-    // --- Mouse Events for Dragging ---
     contentBox.addEventListener('mousedown', startDrag);
-    window.addEventListener('mouseup', endDrag); // Window ensures drop works even if mouse leaves div
+    window.addEventListener('mouseup', endDrag);
     window.addEventListener('mousemove', drag);
 
     function startDrag(e) {
-        if (currentZoom <= 1) return; // Only drag if zoomed in
+        if (currentZoom <= 1) return;
         e.preventDefault();
         isDragging = true;
         startX = e.clientX - translateX;
@@ -495,7 +467,6 @@
         updateTransform();
     }
 
-    // Close Viewer
     function closeViewer() {
         viewer.classList.remove('active');
         contentBox.innerHTML = ''; 
