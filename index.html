@@ -3,31 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AirGallery V3 (Fixed)</title>
+    <title>AirGallery V4 (Fixed)</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
     <style>
         :root {
-            --bg: #0f172a;
-            --surface: #1e293b;
-            --accent: #38bdf8;
-            --text: #f8fafc;
+            --bg-color: #0f172a;
+            --surface-color: #1e293b;
+            --accent-color: #38bdf8;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
         }
 
         body {
-            font-family: sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
             margin: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             height: 100vh;
-            overflow: hidden;
+            overflow: hidden; /* Prevent scrolling the whole body */
         }
 
+        /* --- Header --- */
         header {
             width: 100%;
             padding: 15px;
@@ -37,6 +39,7 @@
             z-index: 50;
         }
 
+        /* --- Main Scrollable Area --- */
         .main-scroll {
             width: 100%;
             flex-grow: 1;
@@ -47,219 +50,266 @@
             align-items: center;
         }
 
-        .container { width: 90%; max-width: 1200px; text-align: center; }
-        
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            text-align: center;
+        }
+
+        /* --- Panels --- */
         .panel { display: none; }
         .panel.active { display: block; animation: fade 0.3s; }
-        @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
+        /* --- Host UI (PC) --- */
+        #qr-container {
+            background: white; padding: 15px; border-radius: 12px;
+            display: inline-block; margin: 20px 0;
+        }
+
+        /* --- Gallery Grid --- */
         .gallery-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-            gap: 12px;
+            gap: 15px;
             padding-bottom: 80px;
         }
-
+        
         .media-card {
-            background: var(--surface);
-            border-radius: 10px;
+            background: var(--surface-color);
+            border-radius: 12px;
             aspect-ratio: 1;
             position: relative;
             cursor: pointer;
-            border: 2px solid transparent;
             overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            border: 2px solid transparent;
+            transition: transform 0.2s;
         }
-        .media-card:hover { border-color: var(--accent); }
+        .media-card:hover { border-color: var(--accent-color); transform: scale(1.02); }
         
-        .media-card img {
-            width: 100%; height: 100%; object-fit: cover;
+        .media-card img, .media-card video {
+            width: 100%; height: 100%; object-fit: cover; pointer-events: none;
         }
 
-        .video-placeholder {
-            width: 100%; height: 100%;
-            background: linear-gradient(135deg, #1e293b, #0f172a);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: var(--accent);
+        /* Play icon overlay for videos in grid */
+        .play-icon {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3rem; color: rgba(255,255,255,0.8);
+            text-shadow: 0 2px 5px rgba(0,0,0,0.5);
         }
-        .video-placeholder i { font-size: 3rem; margin-bottom: 10px; }
 
+        /* --- Client UI (Phone) --- */
+        .mobile-btn {
+            background: var(--accent-color); color: #0f172a;
+            width: 100%; padding: 25px; border-radius: 16px;
+            font-size: 1.2rem; font-weight: bold; border: none;
+            margin-top: 20px; cursor: pointer; position: relative; overflow: hidden;
+        }
+        .mobile-btn input {
+            position: absolute; top:0; left:0; width:100%; height:100%; opacity:0;
+        }
+
+        /* --- Fullscreen Viewer --- */
         #viewer {
-            display: none; position: fixed; inset: 0;
+            display: none; position: fixed; inset: 0; 
             background: rgba(0,0,0,0.95); z-index: 100;
-            flex-direction: column; align-items: center; justify-content: center;
+            flex-direction: column; justify-content: center; align-items: center;
         }
         #viewer.active { display: flex; }
 
-        #viewer-content {
-            position: relative;
-            width: 100%; height: 80%;
-            display: flex; justify-content: center; align-items: center;
-        }
-        #viewer-content img, #viewer-content video {
-            max-width: 95%; max-height: 100%;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-        }
-
+        /* Navigation Arrows */
         .nav-btn {
             position: absolute; top: 50%; transform: translateY(-50%);
             background: rgba(255,255,255,0.1); color: white;
-            border: none; padding: 20px; font-size: 2rem;
-            cursor: pointer; border-radius: 50%; z-index: 101;
+            border: none; padding: 20px; font-size: 2.5rem; cursor: pointer;
+            border-radius: 50%; transition: background 0.2s; z-index: 101;
         }
         .nav-btn:hover { background: rgba(255,255,255,0.3); }
         #prev-btn { left: 20px; }
         #next-btn { right: 20px; }
 
+        /* Media Container (For Zoom) */
+        #viewer-content {
+            position: relative;
+            max-width: 90vw; max-height: 80vh;
+            display: flex; justify-content: center; align-items: center;
+            transition: transform 0.1s ease-out; /* Smooth zoom */
+        }
+        #viewer-content img, #viewer-content video {
+            max-width: 100%; max-height: 80vh; 
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
+
+        /* Bottom Toolbar */
         .toolbar {
-            margin-top: 15px;
+            position: absolute; bottom: 30px;
             display: flex; gap: 15px;
-            background: rgba(255,255,255,0.1);
-            padding: 10px 25px; border-radius: 50px;
+            background: rgba(255,255,255,0.1); padding: 10px 25px; border-radius: 50px;
+            z-index: 102;
         }
         .tool-btn {
             background: transparent; border: 1px solid rgba(255,255,255,0.3);
-            color: white; padding: 8px 15px; border-radius: 20px; cursor: pointer;
-            display: flex; align-items: center; gap: 8px;
+            color: white; padding: 8px 15px; border-radius: 20px;
+            cursor: pointer; display: flex; align-items: center; gap: 8px;
         }
         .tool-btn:hover { background: rgba(255,255,255,0.2); }
 
-        #close-btn {
-            position: absolute; top: 20px; right: 30px;
-            font-size: 3rem; cursor: pointer; color: #fff; z-index: 102;
+        #close-viewer {
+            position: absolute; top: 20px; right: 30px; 
+            color: white; font-size: 3rem; cursor: pointer; z-index: 200;
         }
-        
-        .mobile-upload {
-            background: var(--accent); color: #000;
-            padding: 20px; border-radius: 15px; font-weight: bold;
-            font-size: 1.2rem; position: relative; overflow: hidden;
-            display: inline-block; margin-top: 20px;
-        }
-        .mobile-upload input {
-            position: absolute; top:0; left:0; width:100%; height:100%; opacity:0;
+
+        #viewer-counter {
+            position: absolute; top: 30px; left: 30px;
+            color: var(--text-secondary); font-size: 1rem;
         }
     </style>
 </head>
 <body>
 
 <header>
-    <h3>AirGallery V3 (Fixed)</h3>
+    <h3>AirGallery V4</h3>
 </header>
 
 <div class="main-scroll">
     <div class="container">
-        
-        <div id="p-init" class="panel active">
+
+        <div id="p-loading" class="panel active">
             <p>Starting server...</p>
         </div>
 
         <div id="p-host" class="panel">
             <h2>Scan to Connect</h2>
-            <div style="background:white; padding:15px; display:inline-block; border-radius:10px; margin:20px;">
-                <div id="qrcode"></div>
-            </div>
-            <p style="color:#94a3b8">Waiting for phone...</p>
+            <div id="qr-container"><div id="qrcode"></div></div>
+            <p style="color: var(--text-secondary)">Scan with your phone camera</p>
         </div>
 
         <div id="p-gallery" class="panel">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <div id="gallery-info" style="color:#94a3b8">0 items</div>
-                <div style="color:#4ade80"><i class="bi bi-circle-fill" style="font-size:0.6rem"></i> Live</div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                <h2>Library</h2>
+                <span style="color: #4ade80;">● Connected</span>
             </div>
             <div class="gallery-grid" id="grid"></div>
+            <div id="empty-state" style="color: var(--text-secondary); margin-top: 50px;">
+                No media yet. Select photos or videos on your phone.
+            </div>
         </div>
 
         <div id="p-client" class="panel">
             <h2>Connected!</h2>
-            <div class="mobile-upload">
-                <i class="bi bi-cloud-upload"></i> Upload Photos & Videos
+            <div class="mobile-btn">
+                <i class="bi bi-cloud-upload"></i> Upload Media
                 <input type="file" id="file-input" multiple accept="image/*,video/*">
             </div>
-            <ul id="logs" style="list-style:none; padding:0; margin-top:20px; color:#4ade80; text-align:left;"></ul>
+            <ul id="upload-logs" style="list-style:none; padding:0; margin-top:30px; text-align:left; color:#4ade80;"></ul>
         </div>
+
     </div>
 </div>
 
-<div id="viewer" tabindex="0">
-    <div id="close-btn">&times;</div>
-    
+<div id="viewer" tabindex="0"> <div id="close-viewer">&times;</div>
+    <div id="viewer-counter"></div>
+
     <button class="nav-btn" id="prev-btn"><i class="bi bi-chevron-left"></i></button>
     <button class="nav-btn" id="next-btn"><i class="bi bi-chevron-right"></i></button>
 
-    <div id="viewer-content"></div>
+    <div id="viewer-content">
+        </div>
 
     <div class="toolbar">
         <button class="tool-btn" onclick="zoom(-0.2)"><i class="bi bi-zoom-out"></i></button>
-        <button class="tool-btn" onclick="zoom(0)"><i class="bi bi-arrows-fullscreen"></i> Reset</button>
+        <button class="tool-btn" onclick="resetZoom()">Reset</button>
         <button class="tool-btn" onclick="zoom(0.2)"><i class="bi bi-zoom-in"></i></button>
-        <button class="tool-btn" id="dl-btn"><i class="bi bi-download"></i> Save</button>
     </div>
-    <div style="margin-top:10px; color:#94a3b8; font-size:0.9rem;" id="viewer-counter"></div>
 </div>
 
 <script>
+    // --- Setup ---
     const urlParams = new URLSearchParams(window.location.search);
     const hostId = urlParams.get('host');
     const isClient = !!hostId;
     const peer = new Peer(null, { debug: 1 });
-    let conn;
-    let items = []; 
-    let curIdx = 0;
-    let curZoom = 1;
+    let conn = null;
 
+    // Gallery Data
+    let galleryItems = []; // Stores { url, type, originalBlob }
+    let currentIndex = 0;
+    let currentZoom = 1;
+
+    // --- Routing ---
     function showPanel(id) {
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
         document.getElementById(id).classList.add('active');
     }
 
-    peer.on('open', id => {
-        if(isClient) initClient(id);
-        else initHost(id);
+    // --- PeerJS Init ---
+    peer.on('open', (id) => {
+        isClient ? initClient(id) : initHost(id);
     });
 
-    function initHost(id) {
+    // ==========================================
+    //  PC HOST LOGIC
+    // ==========================================
+    function initHost(myId) {
         showPanel('p-host');
-        const link = `${location.origin}${location.pathname}?host=${id}`;
-        new QRCode(document.getElementById("qrcode"), { text: link, width:180, height:180 });
+        // Generate QR
+        const link = `${window.location.origin}${window.location.pathname}?host=${myId}`;
+        new QRCode(document.getElementById("qrcode"), { text: link, width: 200, height: 200 });
 
-        peer.on('connection', c => {
+        peer.on('connection', (c) => {
             conn = c;
             conn.on('open', () => showPanel('p-gallery'));
-            conn.on('data', data => {
-                if(data.file) addItem(data.file, data.name, data.type);
+            
+            // RECEIVE DATA
+            conn.on('data', (data) => {
+                if(data.file) {
+                    addToGallery(data.file, data.name, data.type);
+                }
             });
+            
             conn.on('close', () => alert("Phone disconnected"));
         });
     }
 
-    // --- FIX IS HERE: Reconstruct the Blob from raw data ---
-    function addItem(fileData, name, type) {
-        // We wrap the incoming data in a new Blob. This fixes the issue where
-        // the browser sees "Raw Data" instead of a "File", which caused the crash.
-        const blob = new Blob([fileData], { type: type });
+    function addToGallery(fileData, fileName, fileType) {
+        document.getElementById('empty-state').style.display = 'none';
+        
+        // --- VITAL FIX: Wrap raw data in Blob so browser understands it ---
+        const blob = new Blob([fileData], { type: fileType });
         const blobUrl = URL.createObjectURL(blob);
         
-        const isVideo = type.includes('video') || name.match(/\.(mp4|mov|mkv|webm|avi)$/i);
-        
-        const item = { url: blobUrl, type: isVideo ? 'video' : 'image', name: name };
-        items.push(item);
-        
+        // Detect if video
+        const isVideo = fileType.startsWith('video');
+
+        // Store item
+        galleryItems.push({
+            url: blobUrl,
+            type: isVideo ? 'video' : 'image',
+            name: fileName
+        });
+
+        const index = galleryItems.length - 1;
+
+        // Render Grid Card
         const grid = document.getElementById('grid');
         const card = document.createElement('div');
         card.className = 'media-card';
-        card.onclick = () => openViewer(items.length - 1);
+        card.onclick = () => openViewer(index);
 
         if (isVideo) {
-            card.innerHTML = `
-                <div class="video-placeholder">
-                    <i class="bi bi-play-circle"></i>
-                    <span style="font-size:0.8rem">${name.substring(0,10)}...</span>
-                </div>`;
+            // Create a video thumbnail
+            const vid = document.createElement('video');
+            vid.src = blobUrl;
+            vid.muted = true; // Required for thumbnail auto-play
+            // vid.play(); // Optional: remove if too heavy
+            
+            const icon = document.createElement('div');
+            icon.className = 'play-icon';
+            icon.innerHTML = '<i class="bi bi-play-circle-fill"></i>';
+
+            card.appendChild(vid);
+            card.appendChild(icon);
         } else {
             const img = document.createElement('img');
             img.src = blobUrl;
@@ -267,94 +317,124 @@
         }
         
         grid.appendChild(card);
-        document.getElementById('gallery-info').innerText = `${items.length} items collected`;
     }
 
-    function initClient(id) {
+    // ==========================================
+    //  PHONE CLIENT LOGIC
+    // ==========================================
+    function initClient(myId) {
         conn = peer.connect(hostId);
         conn.on('open', () => showPanel('p-client'));
-        
-        document.getElementById('file-input').addEventListener('change', e => {
-            const list = document.getElementById('logs');
-            Array.from(e.target.files).forEach(f => {
-                conn.send({ file: f, name: f.name, type: f.type });
-                list.innerHTML = `<li>Sent: ${f.name}</li>` + list.innerHTML;
+        conn.on('error', () => alert("Connection Failed"));
+    }
+
+    document.getElementById('file-input').addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        const logs = document.getElementById('upload-logs');
+
+        files.forEach(file => {
+            // Send file + metadata
+            conn.send({ 
+                file: file, 
+                name: file.name, 
+                type: file.type 
             });
+            
+            const li = document.createElement('li');
+            li.textContent = `✔ Sent: ${file.name}`;
+            logs.prepend(li);
         });
-    }
+    });
 
+    // ==========================================
+    //  VIEWER LOGIC (Zoom + Nav + Video)
+    // ==========================================
     const viewer = document.getElementById('viewer');
-    const vContent = document.getElementById('viewer-content');
+    const contentBox = document.getElementById('viewer-content');
 
-    function openViewer(idx) {
-        curIdx = idx;
+    function openViewer(index) {
+        currentIndex = index;
         viewer.classList.add('active');
-        viewer.focus();
-        renderSlide();
+        viewer.focus(); // Focus so keyboard works immediately
+        renderViewerContent();
     }
 
-    function renderSlide() {
-        vContent.innerHTML = '';
-        curZoom = 1;
+    function renderViewerContent() {
+        // Reset Zoom
+        currentZoom = 1;
         applyZoom();
 
-        const item = items[curIdx];
-        document.getElementById('viewer-counter').innerText = `${curIdx + 1} / ${items.length}`;
+        contentBox.innerHTML = ''; // Clear previous
+        const item = galleryItems[currentIndex];
+        
+        // Update Counter
+        document.getElementById('viewer-counter').innerText = `${currentIndex + 1} / ${galleryItems.length}`;
 
-        const dlBtn = document.getElementById('dl-btn');
-        dlBtn.onclick = () => {
-            const a = document.createElement('a');
-            a.href = item.url;
-            a.download = item.name;
-            a.click();
-        };
-
-        if(item.type === 'video') {
+        if (item.type === 'video') {
             const vid = document.createElement('video');
             vid.src = item.url;
             vid.controls = true;
             vid.autoplay = true;
-            vid.onerror = () => {
-                vContent.innerHTML = `<div style="text-align:center; color:white;">
-                    <i class="bi bi-exclamation-triangle" style="font-size:2rem; color:#f59e0b"></i><br>
-                    Format not supported.<br>Please use the <b>Save</b> button to play on PC.
-                </div>`;
-            };
-            vContent.appendChild(vid);
+            vid.style.maxHeight = "80vh";
+            contentBox.appendChild(vid);
         } else {
             const img = document.createElement('img');
             img.src = item.url;
-            vContent.appendChild(img);
+            contentBox.appendChild(img);
         }
+        
+        // Handle Nav Visibility
+        document.getElementById('prev-btn').style.display = currentIndex > 0 ? 'block' : 'none';
+        document.getElementById('next-btn').style.display = currentIndex < galleryItems.length - 1 ? 'block' : 'none';
     }
 
-    function zoom(delta) {
-        if(delta === 0) curZoom = 1;
-        else curZoom += delta;
+    // Navigation
+    function changeSlide(dir) {
+        const newIndex = currentIndex + dir;
+        if (newIndex >= 0 && newIndex < galleryItems.length) {
+            currentIndex = newIndex;
+            renderViewerContent();
+        }
+    }
+    
+    // Button clicks
+    document.getElementById('prev-btn').onclick = (e) => { e.stopPropagation(); changeSlide(-1); };
+    document.getElementById('next-btn').onclick = (e) => { e.stopPropagation(); changeSlide(1); };
+
+    // Keyboard Shortcuts (Arrow Keys)
+    document.addEventListener('keydown', (e) => {
+        if (!viewer.classList.contains('active')) return;
+        
+        if (e.key === 'ArrowLeft') changeSlide(-1);
+        else if (e.key === 'ArrowRight') changeSlide(1);
+        else if (e.key === 'Escape') closeViewer();
+    });
+
+    // Zoom Functions
+    function zoom(amount) {
+        currentZoom += amount;
+        if (currentZoom < 0.5) currentZoom = 0.5;
+        if (currentZoom > 4) currentZoom = 4;
         applyZoom();
     }
+    
+    function resetZoom() {
+        currentZoom = 1;
+        applyZoom();
+    }
+
     function applyZoom() {
-        if(vContent.firstChild) vContent.firstChild.style.transform = `scale(${curZoom})`;
+        // Apply transform to the container
+        contentBox.style.transform = `scale(${currentZoom})`;
     }
 
-    function move(dir) {
-        const next = curIdx + dir;
-        if(next >= 0 && next < items.length) {
-            curIdx = next;
-            renderSlide();
-        }
+    // Close Viewer
+    function closeViewer() {
+        viewer.classList.remove('active');
+        contentBox.innerHTML = ''; // Stop video playback
     }
+    document.getElementById('close-viewer').onclick = closeViewer;
 
-    document.getElementById('prev-btn').onclick = (e) => { e.stopPropagation(); move(-1); };
-    document.getElementById('next-btn').onclick = (e) => { e.stopPropagation(); move(1); };
-    document.getElementById('close-btn').onclick = () => { viewer.classList.remove('active'); vContent.innerHTML=''; };
-
-    document.addEventListener('keydown', (e) => {
-        if(!viewer.classList.contains('active')) return;
-        if(e.key === 'ArrowLeft') move(-1);
-        if(e.key === 'ArrowRight') move(1);
-        if(e.key === 'Escape') document.getElementById('close-btn').click();
-    });
 </script>
 </body>
 </html>
