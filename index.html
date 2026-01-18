@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AirGallery V4 (Fixed)</title>
+    <title>AirGallery V5 (Date & Drag)</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -26,7 +26,7 @@
             flex-direction: column;
             align-items: center;
             height: 100vh;
-            overflow: hidden; /* Prevent scrolling the whole body */
+            overflow: hidden;
         }
 
         /* --- Header --- */
@@ -56,7 +56,6 @@
             text-align: center;
         }
 
-        /* --- Panels --- */
         .panel { display: none; }
         .panel.active { display: block; animation: fade 0.3s; }
         @keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -91,7 +90,15 @@
             width: 100%; height: 100%; object-fit: cover; pointer-events: none;
         }
 
-        /* Play icon overlay for videos in grid */
+        /* Date Badge on Grid */
+        .date-badge {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+            color: white; font-size: 0.75rem;
+            padding: 20px 10px 8px 10px;
+            text-align: left;
+        }
+
         .play-icon {
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
@@ -118,7 +125,6 @@
         }
         #viewer.active { display: flex; }
 
-        /* Navigation Arrows */
         .nav-btn {
             position: absolute; top: 50%; transform: translateY(-50%);
             background: rgba(255,255,255,0.1); color: white;
@@ -129,19 +135,25 @@
         #prev-btn { left: 20px; }
         #next-btn { right: 20px; }
 
-        /* Media Container (For Zoom) */
+        /* Media Container (For Zoom & Drag) */
         #viewer-content {
             position: relative;
             max-width: 90vw; max-height: 80vh;
             display: flex; justify-content: center; align-items: center;
-            transition: transform 0.1s ease-out; /* Smooth zoom */
+            /* Transition removed for smoother dragging */
+            cursor: default; 
         }
+        
+        /* Drag cursors */
+        #viewer-content.can-drag { cursor: grab; }
+        #viewer-content.is-dragging { cursor: grabbing; }
+
         #viewer-content img, #viewer-content video {
             max-width: 100%; max-height: 80vh; 
             box-shadow: 0 0 30px rgba(0,0,0,0.5);
+            pointer-events: none; /* Let container handle drag events */
         }
 
-        /* Bottom Toolbar */
         .toolbar {
             position: absolute; bottom: 30px;
             display: flex; gap: 15px;
@@ -160,16 +172,19 @@
             color: white; font-size: 3rem; cursor: pointer; z-index: 200;
         }
 
-        #viewer-counter {
+        #viewer-info {
             position: absolute; top: 30px; left: 30px;
-            color: var(--text-secondary); font-size: 1rem;
+            text-align: left;
+            z-index: 200;
         }
+        #viewer-date { color: var(--accent-color); font-size: 0.9rem; margin-bottom: 4px; }
+        #viewer-counter { color: var(--text-secondary); font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
 <header>
-    <h3>AirGallery V4</h3>
+    <h3>AirGallery V5</h3>
 </header>
 
 <div class="main-scroll">
@@ -208,14 +223,18 @@
     </div>
 </div>
 
-<div id="viewer" tabindex="0"> <div id="close-viewer">&times;</div>
-    <div id="viewer-counter"></div>
+<div id="viewer" tabindex="0">
+    <div id="close-viewer">&times;</div>
+    
+    <div id="viewer-info">
+        <div id="viewer-date"></div>
+        <div id="viewer-counter"></div>
+    </div>
 
     <button class="nav-btn" id="prev-btn"><i class="bi bi-chevron-left"></i></button>
     <button class="nav-btn" id="next-btn"><i class="bi bi-chevron-right"></i></button>
 
-    <div id="viewer-content">
-        </div>
+    <div id="viewer-content"></div>
 
     <div class="toolbar">
         <button class="tool-btn" onclick="zoom(-0.2)"><i class="bi bi-zoom-out"></i></button>
@@ -232,28 +251,33 @@
     const peer = new Peer(null, { debug: 1 });
     let conn = null;
 
-    // Gallery Data
-    let galleryItems = []; // Stores { url, type, originalBlob }
+    // Gallery State
+    let galleryItems = []; 
     let currentIndex = 0;
+    
+    // Zoom & Pan State
     let currentZoom = 1;
-
-    // --- Routing ---
-    function showPanel(id) {
-        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-    }
+    let translateX = 0;
+    let translateY = 0;
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
 
     // --- PeerJS Init ---
     peer.on('open', (id) => {
         isClient ? initClient(id) : initHost(id);
     });
 
+    function showPanel(id) {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
     // ==========================================
-    //  PC HOST LOGIC
+    //  HOST (PC) LOGIC
     // ==========================================
     function initHost(myId) {
         showPanel('p-host');
-        // Generate QR
         const link = `${window.location.origin}${window.location.pathname}?host=${myId}`;
         new QRCode(document.getElementById("qrcode"), { text: link, width: 200, height: 200 });
 
@@ -261,53 +285,49 @@
             conn = c;
             conn.on('open', () => showPanel('p-gallery'));
             
-            // RECEIVE DATA
             conn.on('data', (data) => {
                 if(data.file) {
-                    addToGallery(data.file, data.name, data.type);
+                    addToGallery(data.file, data.name, data.type, data.date);
                 }
             });
-            
             conn.on('close', () => alert("Phone disconnected"));
         });
     }
 
-    function addToGallery(fileData, fileName, fileType) {
+    function addToGallery(fileData, fileName, fileType, fileDate) {
         document.getElementById('empty-state').style.display = 'none';
         
-        // --- VITAL FIX: Wrap raw data in Blob so browser understands it ---
+        // Wrap raw data in Blob
         const blob = new Blob([fileData], { type: fileType });
         const blobUrl = URL.createObjectURL(blob);
-        
-        // Detect if video
         const isVideo = fileType.startsWith('video');
 
-        // Store item
+        // Format Date
+        const dateObj = new Date(fileDate);
+        const dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
         galleryItems.push({
             url: blobUrl,
             type: isVideo ? 'video' : 'image',
-            name: fileName
+            name: fileName,
+            date: dateStr
         });
 
         const index = galleryItems.length - 1;
 
-        // Render Grid Card
+        // Render Card
         const grid = document.getElementById('grid');
         const card = document.createElement('div');
         card.className = 'media-card';
         card.onclick = () => openViewer(index);
 
         if (isVideo) {
-            // Create a video thumbnail
             const vid = document.createElement('video');
             vid.src = blobUrl;
-            vid.muted = true; // Required for thumbnail auto-play
-            // vid.play(); // Optional: remove if too heavy
-            
+            vid.muted = true; 
             const icon = document.createElement('div');
             icon.className = 'play-icon';
             icon.innerHTML = '<i class="bi bi-play-circle-fill"></i>';
-
             card.appendChild(vid);
             card.appendChild(icon);
         } else {
@@ -315,12 +335,18 @@
             img.src = blobUrl;
             card.appendChild(img);
         }
+
+        // Add Date Badge
+        const dateBadge = document.createElement('div');
+        dateBadge.className = 'date-badge';
+        dateBadge.innerText = dateStr;
+        card.appendChild(dateBadge);
         
         grid.appendChild(card);
     }
 
     // ==========================================
-    //  PHONE CLIENT LOGIC
+    //  CLIENT (PHONE) LOGIC
     // ==========================================
     function initClient(myId) {
         conn = peer.connect(hostId);
@@ -333,11 +359,11 @@
         const logs = document.getElementById('upload-logs');
 
         files.forEach(file => {
-            // Send file + metadata
             conn.send({ 
                 file: file, 
                 name: file.name, 
-                type: file.type 
+                type: file.type,
+                date: file.lastModified // Send timestamp
             });
             
             const li = document.createElement('li');
@@ -347,7 +373,7 @@
     });
 
     // ==========================================
-    //  VIEWER LOGIC (Zoom + Nav + Video)
+    //  VIEWER: ZOOM + DRAG + NAV
     // ==========================================
     const viewer = document.getElementById('viewer');
     const contentBox = document.getElementById('viewer-content');
@@ -355,20 +381,19 @@
     function openViewer(index) {
         currentIndex = index;
         viewer.classList.add('active');
-        viewer.focus(); // Focus so keyboard works immediately
+        viewer.focus();
         renderViewerContent();
     }
 
     function renderViewerContent() {
-        // Reset Zoom
-        currentZoom = 1;
-        applyZoom();
-
-        contentBox.innerHTML = ''; // Clear previous
+        resetZoom(); // Reset position and scale
+        contentBox.innerHTML = '';
+        
         const item = galleryItems[currentIndex];
         
-        // Update Counter
+        // Update Info
         document.getElementById('viewer-counter').innerText = `${currentIndex + 1} / ${galleryItems.length}`;
+        document.getElementById('viewer-date').innerText = item.date;
 
         if (item.type === 'video') {
             const vid = document.createElement('video');
@@ -383,12 +408,10 @@
             contentBox.appendChild(img);
         }
         
-        // Handle Nav Visibility
-        document.getElementById('prev-btn').style.display = currentIndex > 0 ? 'block' : 'none';
-        document.getElementById('next-btn').style.display = currentIndex < galleryItems.length - 1 ? 'block' : 'none';
+        updateNavButtons();
     }
 
-    // Navigation
+    // --- Navigation ---
     function changeSlide(dir) {
         const newIndex = currentIndex + dir;
         if (newIndex >= 0 && newIndex < galleryItems.length) {
@@ -397,41 +420,85 @@
         }
     }
     
-    // Button clicks
+    function updateNavButtons() {
+        document.getElementById('prev-btn').style.display = currentIndex > 0 ? 'block' : 'none';
+        document.getElementById('next-btn').style.display = currentIndex < galleryItems.length - 1 ? 'block' : 'none';
+    }
+
     document.getElementById('prev-btn').onclick = (e) => { e.stopPropagation(); changeSlide(-1); };
     document.getElementById('next-btn').onclick = (e) => { e.stopPropagation(); changeSlide(1); };
 
-    // Keyboard Shortcuts (Arrow Keys)
     document.addEventListener('keydown', (e) => {
         if (!viewer.classList.contains('active')) return;
-        
         if (e.key === 'ArrowLeft') changeSlide(-1);
         else if (e.key === 'ArrowRight') changeSlide(1);
         else if (e.key === 'Escape') closeViewer();
     });
 
-    // Zoom Functions
+    // --- Zoom & Drag Logic ---
     function zoom(amount) {
         currentZoom += amount;
         if (currentZoom < 0.5) currentZoom = 0.5;
-        if (currentZoom > 4) currentZoom = 4;
-        applyZoom();
+        if (currentZoom > 5) currentZoom = 5;
+        
+        // If zoomed out completely, reset position
+        if (currentZoom <= 1) {
+            currentZoom = 1;
+            translateX = 0;
+            translateY = 0;
+        }
+        updateTransform();
     }
     
     function resetZoom() {
         currentZoom = 1;
-        applyZoom();
+        translateX = 0;
+        translateY = 0;
+        updateTransform();
     }
 
-    function applyZoom() {
-        // Apply transform to the container
-        contentBox.style.transform = `scale(${currentZoom})`;
+    function updateTransform() {
+        contentBox.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentZoom})`;
+        
+        // Cursor management
+        if (currentZoom > 1) {
+            contentBox.classList.add('can-drag');
+        } else {
+            contentBox.classList.remove('can-drag', 'is-dragging');
+        }
+    }
+
+    // --- Mouse Events for Dragging ---
+    contentBox.addEventListener('mousedown', startDrag);
+    window.addEventListener('mouseup', endDrag); // Window ensures drop works even if mouse leaves div
+    window.addEventListener('mousemove', drag);
+
+    function startDrag(e) {
+        if (currentZoom <= 1) return; // Only drag if zoomed in
+        e.preventDefault();
+        isDragging = true;
+        startX = e.clientX - translateX;
+        startY = e.clientY - translateY;
+        contentBox.classList.add('is-dragging');
+    }
+
+    function endDrag() {
+        isDragging = false;
+        contentBox.classList.remove('is-dragging');
+    }
+
+    function drag(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+        translateX = e.clientX - startX;
+        translateY = e.clientY - startY;
+        updateTransform();
     }
 
     // Close Viewer
     function closeViewer() {
         viewer.classList.remove('active');
-        contentBox.innerHTML = ''; // Stop video playback
+        contentBox.innerHTML = ''; 
     }
     document.getElementById('close-viewer').onclick = closeViewer;
 
