@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AirGallery V3</title>
+    <title>AirGallery V3 (Fixed)</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -25,7 +25,7 @@
             flex-direction: column;
             align-items: center;
             height: 100vh;
-            overflow: hidden; /* Prevent body scroll, we scroll the container */
+            overflow: hidden;
         }
 
         header {
@@ -37,7 +37,6 @@
             z-index: 50;
         }
 
-        /* Scrollable Main Area */
         .main-scroll {
             width: 100%;
             flex-grow: 1;
@@ -54,7 +53,6 @@
         .panel.active { display: block; animation: fade 0.3s; }
         @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 
-        /* --- Grid Styles --- */
         .gallery-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -80,7 +78,6 @@
             width: 100%; height: 100%; object-fit: cover;
         }
 
-        /* Placeholder for Videos to prevent broken icons */
         .video-placeholder {
             width: 100%; height: 100%;
             background: linear-gradient(135deg, #1e293b, #0f172a);
@@ -92,7 +89,6 @@
         }
         .video-placeholder i { font-size: 3rem; margin-bottom: 10px; }
 
-        /* --- Viewer --- */
         #viewer {
             display: none; position: fixed; inset: 0;
             background: rgba(0,0,0,0.95); z-index: 100;
@@ -110,7 +106,6 @@
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
 
-        /* Viewer Controls */
         .nav-btn {
             position: absolute; top: 50%; transform: translateY(-50%);
             background: rgba(255,255,255,0.1); color: white;
@@ -139,7 +134,6 @@
             font-size: 3rem; cursor: pointer; color: #fff; z-index: 102;
         }
         
-        /* Mobile Upload Button */
         .mobile-upload {
             background: var(--accent); color: #000;
             padding: 20px; border-radius: 15px; font-weight: bold;
@@ -154,7 +148,7 @@
 <body>
 
 <header>
-    <h3>AirGallery V3</h3>
+    <h3>AirGallery V3 (Fixed)</h3>
 </header>
 
 <div class="main-scroll">
@@ -197,8 +191,7 @@
     <button class="nav-btn" id="prev-btn"><i class="bi bi-chevron-left"></i></button>
     <button class="nav-btn" id="next-btn"><i class="bi bi-chevron-right"></i></button>
 
-    <div id="viewer-content">
-        </div>
+    <div id="viewer-content"></div>
 
     <div class="toolbar">
         <button class="tool-btn" onclick="zoom(-0.2)"><i class="bi bi-zoom-out"></i></button>
@@ -210,19 +203,15 @@
 </div>
 
 <script>
-    // --- Logic ---
     const urlParams = new URLSearchParams(window.location.search);
     const hostId = urlParams.get('host');
     const isClient = !!hostId;
     const peer = new Peer(null, { debug: 1 });
     let conn;
-
-    // Data Store
-    let items = []; // { blobUrl, type, name, originalBlob }
+    let items = []; 
     let curIdx = 0;
     let curZoom = 1;
 
-    // --- Navigation ---
     function showPanel(id) {
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
         document.getElementById(id).classList.add('active');
@@ -233,7 +222,6 @@
         else initHost(id);
     });
 
-    // --- PC (Host) ---
     function initHost(id) {
         showPanel('p-host');
         const link = `${location.origin}${location.pathname}?host=${id}`;
@@ -249,22 +237,24 @@
         });
     }
 
-    function addItem(fileBlob, name, type) {
-        const blobUrl = URL.createObjectURL(fileBlob);
-        // Robust video check: MIME type OR file extension
+    // --- FIX IS HERE: Reconstruct the Blob from raw data ---
+    function addItem(fileData, name, type) {
+        // We wrap the incoming data in a new Blob. This fixes the issue where
+        // the browser sees "Raw Data" instead of a "File", which caused the crash.
+        const blob = new Blob([fileData], { type: type });
+        const blobUrl = URL.createObjectURL(blob);
+        
         const isVideo = type.includes('video') || name.match(/\.(mp4|mov|mkv|webm|avi)$/i);
         
-        const item = { url: blobUrl, type: isVideo ? 'video' : 'image', name: name, blob: fileBlob };
+        const item = { url: blobUrl, type: isVideo ? 'video' : 'image', name: name };
         items.push(item);
         
-        // Update Grid
         const grid = document.getElementById('grid');
         const card = document.createElement('div');
         card.className = 'media-card';
         card.onclick = () => openViewer(items.length - 1);
 
         if (isVideo) {
-            // Use a placeholder for videos to avoid broken icons
             card.innerHTML = `
                 <div class="video-placeholder">
                     <i class="bi bi-play-circle"></i>
@@ -280,7 +270,6 @@
         document.getElementById('gallery-info').innerText = `${items.length} items collected`;
     }
 
-    // --- Phone (Client) ---
     function initClient(id) {
         conn = peer.connect(hostId);
         conn.on('open', () => showPanel('p-client'));
@@ -294,14 +283,13 @@
         });
     }
 
-    // --- Viewer & Controls ---
     const viewer = document.getElementById('viewer');
     const vContent = document.getElementById('viewer-content');
 
     function openViewer(idx) {
         curIdx = idx;
         viewer.classList.add('active');
-        viewer.focus(); // Capture keyboard focus
+        viewer.focus();
         renderSlide();
     }
 
@@ -313,7 +301,6 @@
         const item = items[curIdx];
         document.getElementById('viewer-counter').innerText = `${curIdx + 1} / ${items.length}`;
 
-        // Set Download Link
         const dlBtn = document.getElementById('dl-btn');
         dlBtn.onclick = () => {
             const a = document.createElement('a');
@@ -327,7 +314,6 @@
             vid.src = item.url;
             vid.controls = true;
             vid.autoplay = true;
-            // Error handling for video playback
             vid.onerror = () => {
                 vContent.innerHTML = `<div style="text-align:center; color:white;">
                     <i class="bi bi-exclamation-triangle" style="font-size:2rem; color:#f59e0b"></i><br>
@@ -342,7 +328,6 @@
         }
     }
 
-    // Zoom
     function zoom(delta) {
         if(delta === 0) curZoom = 1;
         else curZoom += delta;
@@ -352,7 +337,6 @@
         if(vContent.firstChild) vContent.firstChild.style.transform = `scale(${curZoom})`;
     }
 
-    // Navigation Logic
     function move(dir) {
         const next = curIdx + dir;
         if(next >= 0 && next < items.length) {
@@ -361,15 +345,12 @@
         }
     }
 
-    // Controls
     document.getElementById('prev-btn').onclick = (e) => { e.stopPropagation(); move(-1); };
     document.getElementById('next-btn').onclick = (e) => { e.stopPropagation(); move(1); };
     document.getElementById('close-btn').onclick = () => { viewer.classList.remove('active'); vContent.innerHTML=''; };
 
-    // Keyboard Shortcuts
     document.addEventListener('keydown', (e) => {
         if(!viewer.classList.contains('active')) return;
-        
         if(e.key === 'ArrowLeft') move(-1);
         if(e.key === 'ArrowRight') move(1);
         if(e.key === 'Escape') document.getElementById('close-btn').click();
