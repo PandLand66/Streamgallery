@@ -3,691 +3,322 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cross-Device Photo Stream</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <title>AirGallery - Stream Photos</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
+    
     <style>
         :root {
-            --bg-color: #050A18;
-            --panel-bg: #0F1C35;
-            --accent-blue: #3A6EA5;
-            --accent-hover: #5086C1;
-            --text-main: #FFFFFF;
-            --text-secondary: #A0AAB5;
-            --danger: #FF4C4C;
-            --border-radius: 12px;
-            --font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --primary-color: #bb86fc;
+            --text-color: #ffffff;
+            --text-secondary: #b0b0b0;
         }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: var(--font-family);
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        /* --- Landing Modal (Role Selection) --- */
-        #landing-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(5, 10, 24, 0.95);
-            z-index: 2000;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            backdrop-filter: blur(5px);
-        }
-
-        .role-card {
-            background: var(--panel-bg);
-            padding: 3rem;
-            border-radius: 20px;
-            text-align: center;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            max-width: 500px;
-            width: 90%;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .role-buttons {
-            display: flex;
-            gap: 1rem;
-            margin-top: 2rem;
-            justify-content: center;
-        }
-
-        .role-btn {
-            padding: 1rem 2rem;
-            border-radius: 10px;
-            border: none;
-            font-size: 1.1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.2s;
+            color: var(--text-color);
+            margin: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
-            width: 140px;
+            min-height: 100vh;
         }
 
-        .role-btn i { font-size: 2rem; }
-
-        .btn-sender { background: var(--accent-blue); color: white; }
-        .btn-sender:hover { background: var(--accent-hover); transform: translateY(-3px); }
-
-        .btn-viewer { background: transparent; border: 2px solid var(--text-secondary); color: var(--text-secondary); }
-        .btn-viewer:hover { border-color: white; color: white; transform: translateY(-3px); }
-
-        /* --- Header --- */
         header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 2rem;
-            background: rgba(15,28,53,0.9);
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-
-        .status-badge {
-            font-size: 0.8rem;
-            padding: 4px 12px;
-            border-radius: 20px;
-            background: #1e293b;
-            color: #94a3b8;
-        }
-        .status-badge.connected { background: rgba(16, 185, 129, 0.2); color: #34d399; }
-
-        /* --- Main Layout --- */
-        .container {
-            display: flex;
-            flex: 1;
-            padding: 1rem;
-            gap: 1.5rem;
-            overflow: hidden;
-            position: relative;
-        }
-
-        /* Sidebar */
-        .sidebar {
-            width: 300px;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            transition: margin 0.3s ease;
-        }
-        
-        body.viewer-mode .sidebar {
-            display: none;
-        }
-        
-        body.viewer-mode .gallery-section {
-            padding-left: 0;
-        }
-
-        .qr-card {
-            background-color: var(--panel-bg);
-            border-radius: var(--border-radius);
-            padding: 1.5rem;
+            width: 100%;
+            padding: 20px;
+            background-color: var(--surface-color);
             text-align: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
+        h1 { margin: 0; font-size: 1.5rem; letter-spacing: 1px; }
+
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        /* Mode Selection / Panels */
+        .panel { display: none; animation: fadein 0.5s; }
+        .panel.active { display: block; }
+
+        /* Buttons */
+        .btn {
+            background-color: var(--primary-color);
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s, opacity 0.2s;
+            margin: 10px;
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn-file { position: relative; overflow: hidden; display: inline-block; }
+        .btn-file input[type=file] {
+            position: absolute; top: 0; right: 0; min-width: 100%; min-height: 100%;
+            font-size: 100px; text-align: right; filter: alpha(opacity=0); opacity: 0;
+            outline: none; background: white; cursor: inherit; display: block;
+        }
+
+        /* QR Code Area */
         #qrcode {
             background: white;
-            padding: 10px;
-            border-radius: 8px;
-            margin: 10px 0;
+            padding: 15px;
+            display: inline-block;
+            border-radius: 10px;
+            margin: 20px 0;
         }
 
-        #qrcode img {
-            display: block; 
-        }
-
-        .link-box {
-            background: rgba(0,0,0,0.3);
-            padding: 8px;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 0.8rem;
-            word-break: break-all;
-            margin-top: 10px;
-            user-select: all;
-            cursor: pointer;
-        }
-
-        /* Gallery */
-        .gallery-section {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            background: rgba(255,255,255,0.02);
-            border-radius: var(--border-radius);
-            padding: 1rem;
-        }
-
-        .toolbar {
-            display: flex;
-            justify-content: flex-end;
-            gap: 0.5rem;
-        }
-
-        .btn {
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.2s;
-        }
-        .btn-blue { background: var(--accent-blue); color: white; }
-        .btn-blue:hover { background: var(--accent-hover); }
-        .btn-outline { background: transparent; border: 1px solid var(--text-secondary); color: var(--text-secondary); }
-        .btn-outline:hover { color: white; border-color: white; }
-        .btn-red { background: rgba(255, 76, 76, 0.1); color: var(--danger); }
-        .btn-red:hover { background: rgba(255, 76, 76, 0.2); }
-
-        .gallery-grid {
+        /* Gallery Grid */
+        .gallery {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 10px;
-            overflow-y: auto;
-            flex: 1;
+            gap: 15px;
+            margin-top: 20px;
         }
 
-        .photo-card {
-            aspect-ratio: 1;
-            background: #000;
+        .gallery-item {
+            background-color: var(--surface-color);
             border-radius: 8px;
             overflow: hidden;
+            aspect-ratio: 1;
             position: relative;
-            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        
-        .photo-card img {
-            width: 100%; height: 100%; object-fit: cover;
+
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            cursor: pointer;
             transition: transform 0.3s;
         }
-        
-        .photo-card:hover img { transform: scale(1.05); }
 
-        /* Viewer Mode Specifics */
-        .viewer-controls { display: none; }
-        body.viewer-mode .viewer-controls { display: flex; width: 100%; justify-content: space-between; align-items: center; margin-bottom: 1rem;}
-        body.viewer-mode .sender-controls { display: none; }
+        .gallery-item img:hover { transform: scale(1.05); }
 
-        /* --- Lightbox / Slideshow --- */
-        .lightbox {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: black;
-            z-index: 3000;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+        .status { color: var(--text-secondary); margin-bottom: 20px; font-style: italic; }
+
+        /* Fullscreen Viewer */
+        #viewer {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+            width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.95);
+        }
+        #viewer-img {
+            margin: auto; display: block; max-width: 90%; max-height: 90vh;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        }
+        #close-viewer {
+            position: absolute; top: 15px; right: 35px; color: #f1f1f1;
+            font-size: 40px; font-weight: bold; cursor: pointer;
         }
 
-        .lightbox.active { display: flex; }
-
-        .lightbox img {
-            max-width: 100%;
-            max-height: 100vh;
-            object-fit: contain;
-        }
-
-        .lb-controls {
-            position: absolute;
-            bottom: 30px;
-            display: flex;
-            gap: 20px;
-            background: rgba(20,20,20,0.8);
-            padding: 10px 20px;
-            border-radius: 30px;
-            z-index: 3001;
-        }
-
-        .lb-btn {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 1.5rem;
-            cursor: pointer;
-            width: 40px; height: 40px;
-            display: flex; align-items: center; justify-content: center;
-            border-radius: 50%;
-        }
-        .lb-btn:hover { background: rgba(255,255,255,0.2); }
-
-        .lb-close {
-            position: absolute;
-            top: 20px; right: 20px;
-            font-size: 2rem;
-            color: white;
-            cursor: pointer;
-            z-index: 3002;
-            background: none; border: none;
-        }
-
-        .lb-nav {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(0,0,0,0.5);
-            color: white;
-            border: none;
-            padding: 20px;
-            font-size: 2rem;
-            cursor: pointer;
-            z-index: 3001;
-        }
-        .lb-prev { left: 0; }
-        .lb-next { right: 0; }
-        .lb-nav:hover { background: rgba(0,0,0,0.8); }
-
-        @media (max-width: 768px) {
-            .container { flex-direction: column; padding: 0.5rem; }
-            .sidebar { width: 100%; }
-            .role-buttons { flex-direction: column; align-items: center; }
-        }
+        @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
 
-    <div id="landing-overlay">
-        <div class="role-card">
-            <h1 style="margin-bottom: 0.5rem;">Photo Stream</h1>
-            <p style="color: var(--text-secondary);">Connect devices seamlessly over the web.</p>
-            
-            <div class="role-buttons">
-                <button class="role-btn btn-sender" id="btn-start-sender">
-                    <i class="fas fa-satellite-dish"></i>
-                    Sender
-                </button>
-                <button class="role-btn btn-viewer" id="btn-start-viewer">
-                    <i class="fas fa-eye"></i>
-                    Viewer
-                </button>
+<header>
+    <h1>AirGallery</h1>
+</header>
+
+<div class="container">
+    
+    <div id="init-panel" class="panel active">
+        <p class="status">Initializing secure connection...</p>
+    </div>
+
+    <div id="sender-panel" class="panel">
+        <h2>Host Gallery</h2>
+        <p class="status">Scan this code with your PC to connect.</p>
+        <div id="qrcode"></div>
+        <p>Or share this link:<br><small id="share-link" style="color:var(--primary-color); word-break:break-all;"></small></p>
+        <hr style="border-color: #333; margin: 20px 0;">
+        
+        <div id="upload-section" style="opacity: 0.5; pointer-events: none;">
+            <p>Waiting for PC to connect...</p>
+        </div>
+        
+        <div id="sender-controls" style="display:none;">
+            <p style="color: #4caf50;">✔ PC Connected!</p>
+            <div class="btn btn-file">
+                Select Photos to Stream
+                <input type="file" id="file-input" multiple accept="image/*">
             </div>
-            <p style="margin-top: 1.5rem; font-size: 0.8rem; color: #555;">No installation required.</p>
+            <p class="status" id="sender-status">0 photos sent</p>
         </div>
     </div>
 
-    <header>
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <i class="fas fa-bolt" style="color: var(--accent-blue);"></i>
-            <h2 style="font-size: 1.2rem;">Stream</h2>
-        </div>
-        <div class="status-badge" id="connectionStatus">Disconnected</div>
-    </header>
-
-    <div class="container">
-        <aside class="sidebar" id="senderSidebar">
-            <div class="qr-card">
-                <h3>Scan to View</h3>
-                <div id="qrcode"></div>
-                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 10px;">
-                    Scan with other device to connect.
-                </p>
-                <div class="link-box" id="shareLink">Generating link...</div>
-            </div>
-            
-            <div style="background: var(--panel-bg); padding: 1.5rem; border-radius: 12px;">
-                <h4 style="margin-bottom: 10px;">Controls</h4>
-                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">
-                    Uploading photos here will instantly send them to connected viewers.
-                </p>
-            </div>
-        </aside>
-
-        <section class="gallery-section">
-            <div class="viewer-controls">
-                <h3>Shared Gallery</h3>
-                <div style="font-size: 0.9rem; color: var(--text-secondary);">
-                    <i class="fas fa-sync fa-spin" id="syncIcon" style="display:none; margin-right:5px;"></i>
-                    <span id="photoCount">0 photos</span>
-                </div>
-            </div>
-
-            <div class="sender-controls">
-                <div class="toolbar">
-                    <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
-                    <button class="btn btn-blue" id="btn-add-photos">
-                        <i class="fas fa-plus"></i> Add Photos
-                    </button>
-                    <button class="btn btn-red" id="btn-clear-gallery">
-                        <i class="fas fa-trash"></i> Clear
-                    </button>
-                </div>
-            </div>
-
-            <div class="gallery-grid" id="galleryGrid">
-                </div>
-        </section>
+    <div id="receiver-panel" class="panel">
+        <h2>Viewing Gallery</h2>
+        <p class="status" id="receiver-status">Waiting for host to select photos...</p>
+        <div class="gallery" id="gallery-grid"></div>
     </div>
 
-    <div class="lightbox" id="lightbox">
-        <button class="lb-close" id="btn-close-lightbox">&times;</button>
-        <button class="lb-nav lb-prev" id="btn-prev-slide">&#10094;</button>
-        <img src="" id="lbImage" alt="Fullscreen">
-        <button class="lb-nav lb-next" id="btn-next-slide">&#10095;</button>
+</div>
 
-        <div class="lb-controls">
-            <button class="lb-btn" id="btn-play-slideshow" title="Play/Pause Slideshow">
-                <i class="fas fa-play"></i>
-            </button>
-            <span style="color:white; font-size: 0.9rem; display: flex; align-items: center; margin-left: 10px;">
-                <input type="range" id="speedRange" min="1" max="5" value="3" style="width: 80px; margin-right: 5px;">
-                <span id="speedDisplay">3s</span>
-            </span>
-        </div>
-    </div>
+<div id="viewer">
+    <span id="close-viewer">&times;</span>
+    <img id="viewer-img">
+</div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- Variables ---
-            let peer = null;
-            let conn = null;
-            let myId = null;
-            let role = 'sender'; 
-            let photos = []; 
-            let connections = []; 
-            let currentIndex = 0;
-            let slideshowInterval = null;
-            let isPlaying = false;
+<script>
+    // --- Logic ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const hostId = urlParams.get('host');
+    const isReceiver = !!hostId;
 
-            // --- Elements ---
-            const landingOverlay = document.getElementById('landing-overlay');
-            const galleryGrid = document.getElementById('galleryGrid');
-            const fileInput = document.getElementById('fileInput');
-            
-            // --- Initialization Logic ---
-            const urlParams = new URLSearchParams(window.location.search);
-            const hostId = urlParams.get('host');
+    let peer;
+    let conn;
 
-            if (hostId) {
-                // Auto-start as viewer if URL param exists
-                startApp('viewer', hostId);
-            }
+    // DOM Elements
+    const panels = {
+        init: document.getElementById('init-panel'),
+        sender: document.getElementById('sender-panel'),
+        receiver: document.getElementById('receiver-panel')
+    };
 
-            // --- Event Listeners for Buttons ---
-            document.getElementById('btn-start-sender').addEventListener('click', () => startApp('sender'));
-            document.getElementById('btn-start-viewer').addEventListener('click', () => startApp('viewer-manual'));
-            
-            document.getElementById('btn-add-photos').addEventListener('click', () => fileInput.click());
-            document.getElementById('btn-clear-gallery').addEventListener('click', clearGallery);
-            document.getElementById('shareLink').addEventListener('click', copyLink);
-            
-            // Lightbox listeners
-            document.getElementById('btn-close-lightbox').addEventListener('click', closeLightbox);
-            document.getElementById('btn-prev-slide').addEventListener('click', () => changeSlide(-1));
-            document.getElementById('btn-next-slide').addEventListener('click', () => changeSlide(1));
-            document.getElementById('btn-play-slideshow').addEventListener('click', toggleSlideshow);
+    function showPanel(name) {
+        Object.values(panels).forEach(p => p.classList.remove('active'));
+        panels[name].classList.add('active');
+    }
 
-            // --- Main App Start ---
-            function startApp(selectedRole, targetHostId = null) {
-                role = selectedRole === 'viewer-manual' ? 'viewer' : selectedRole;
-                landingOverlay.style.display = 'none';
+    // Initialize PeerJS
+    // Note: We use the default public PeerJS cloud server.
+    peer = new Peer(null, { debug: 2 });
 
-                if (role === 'viewer') {
-                    document.body.classList.add('viewer-mode');
-                    initPeerViewer(targetHostId || prompt("Enter Host ID (or scan QR code):"));
-                } else {
-                    initPeerSender();
-                }
-            }
+    peer.on('open', (id) => {
+        console.log('My Peer ID is: ' + id);
+        
+        if (isReceiver) {
+            startReceiver(id);
+        } else {
+            startSender(id);
+        }
+    });
 
-            // --- Networking (PeerJS) ---
-            function initPeerSender() {
-                // Ensure PeerJS is loaded
-                if (typeof Peer === 'undefined') {
-                    alert("Network library failed to load. Please refresh.");
-                    return;
-                }
+    peer.on('error', (err) => {
+        alert("Connection Error: " + err.type);
+    });
 
-                peer = new Peer(null, { debug: 2 });
-
-                peer.on('open', (id) => {
-                    myId = id;
-                    generateQR(id);
-                    updateStatus('Waiting for connection...', false);
-                });
-
-                peer.on('connection', (c) => {
-                    connections.push(c);
-                    updateStatus('Viewer Connected', true);
-                    
-                    // Sync existing photos
-                    if(photos.length > 0) {
-                        setTimeout(() => {
-                            if(c.open) c.send({ type: 'SYNC_ALL', data: photos });
-                        }, 500);
-                    }
-                });
-
-                peer.on('error', (err) => {
-                    console.error(err);
-                    alert("Connection Error: " + err.type);
-                });
-            }
-
-            function initPeerViewer(hostIdToConnect) {
-                if(!hostIdToConnect) {
-                    alert("No Host ID provided.");
-                    location.reload();
-                    return;
-                }
-
-                updateStatus('Connecting...', false);
-                peer = new Peer(null, { debug: 2 });
-
-                peer.on('open', (id) => {
-                    conn = peer.connect(hostIdToConnect, { reliable: true });
-
-                    conn.on('open', () => {
-                        updateStatus('Connected to Host', true);
-                    });
-
-                    conn.on('data', (data) => {
-                        handleData(data);
-                    });
-
-                    conn.on('close', () => {
-                        alert("Host disconnected");
-                        updateStatus('Disconnected', false);
-                    });
-                });
-
-                peer.on('error', (err) => {
-                    console.error(err);
-                    alert("Connection Error: " + err.type);
-                });
-            }
-
-            function handleData(packet) {
-                if (packet.type === 'SYNC_ALL') {
-                    document.getElementById('syncIcon').style.display = 'inline-block';
-                    photos = packet.data;
-                    renderGallery();
-                    setTimeout(() => {
-                        document.getElementById('syncIcon').style.display = 'none';
-                    }, 1000);
-                }
-                if (packet.type === 'ADD_PHOTO') {
-                    photos.push(packet.data);
-                    renderGallery();
-                }
-                if (packet.type === 'CLEAR') {
-                    photos = [];
-                    renderGallery();
-                }
-            }
-
-            // --- Sender Functions ---
-            function generateQR(id) {
-                const baseUrl = window.location.href.split('?')[0];
-                const fullLink = `${baseUrl}?host=${id}`;
-                
-                const qrContainer = document.getElementById('qrcode');
-                qrContainer.innerHTML = "";
-                new QRCode(qrContainer, {
-                    text: fullLink,
-                    width: 180,
-                    height: 180
-                });
-
-                document.getElementById('shareLink').textContent = fullLink;
-            }
-
-            function copyLink() {
-                const text = document.getElementById('shareLink').textContent;
-                navigator.clipboard.writeText(text).then(() => {
-                    alert("Link copied!");
-                });
-            }
-
-            // --- File Handling ---
-            fileInput.addEventListener('change', (e) => {
-                const files = Array.from(e.target.files);
-                if(files.length === 0) return;
-
-                files.forEach(file => {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        const base64 = event.target.result;
-                        photos.push(base64);
-                        renderGallery();
-                        broadcast({ type: 'ADD_PHOTO', data: base64 });
-                    };
-                    reader.readAsDataURL(file);
-                });
-                fileInput.value = ''; // Reset
-            });
-
-            function clearGallery() {
-                if(confirm("Delete all photos for everyone?")) {
-                    photos = [];
-                    renderGallery();
-                    broadcast({ type: 'CLEAR' });
-                }
-            }
-
-            function broadcast(packet) {
-                connections.forEach(c => {
-                    if(c.open) c.send(packet);
-                });
-            }
-
-            // --- Rendering ---
-            function renderGallery() {
-                const countLabel = document.getElementById('photoCount');
-                galleryGrid.innerHTML = '';
-                countLabel.textContent = `${photos.length} photo${photos.length !== 1 ? 's' : ''}`;
-
-                if (photos.length === 0) {
-                    galleryGrid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:2rem; color:var(--text-secondary);">
-                        <i class="fas fa-image" style="font-size:2rem; margin-bottom:10px;"></i><br>Gallery is empty
-                    </div>`;
-                    return;
-                }
-
-                photos.forEach((src, index) => {
-                    const card = document.createElement('div');
-                    card.className = 'photo-card';
-                    card.innerHTML = `<img src="${src}" loading="lazy">`;
-                    card.onclick = () => openLightbox(index);
-                    galleryGrid.appendChild(card);
-                });
-            }
-
-            function updateStatus(msg, isConnected) {
-                const badge = document.getElementById('connectionStatus');
-                badge.textContent = msg;
-                if(isConnected) badge.classList.add('connected');
-                else badge.classList.remove('connected');
-            }
-
-            // --- Lightbox / Slideshow ---
-            const lightbox = document.getElementById('lightbox');
-            const lbImg = document.getElementById('lbImage');
-            const playBtnIcon = document.querySelector('#btn-play-slideshow i');
-
-            function openLightbox(index) {
-                currentIndex = index;
-                updateSlide();
-                lightbox.classList.add('active');
-            }
-
-            function closeLightbox() {
-                stopSlideshow();
-                lightbox.classList.remove('active');
-            }
-
-            function changeSlide(direction) {
-                if(photos.length === 0) return;
-                currentIndex += direction;
-                if (currentIndex >= photos.length) currentIndex = 0;
-                if (currentIndex < 0) currentIndex = photos.length - 1;
-                updateSlide();
-            }
-
-            function updateSlide() {
-                lbImg.src = photos[currentIndex];
-            }
-
-            function toggleSlideshow() {
-                if (isPlaying) stopSlideshow();
-                else startSlideshow();
-            }
-
-            function startSlideshow() {
-                isPlaying = true;
-                playBtnIcon.className = "fas fa-pause";
-                const speed = document.getElementById('speedRange').value * 1000;
-                
-                slideshowInterval = setInterval(() => {
-                    changeSlide(1);
-                }, speed);
-            }
-
-            function stopSlideshow() {
-                isPlaying = false;
-                playBtnIcon.className = "fas fa-play";
-                clearInterval(slideshowInterval);
-            }
-
-            // Speed slider
-            document.getElementById('speedRange').addEventListener('input', (e) => {
-                document.getElementById('speedDisplay').textContent = e.target.value + 's';
-                if (isPlaying) {
-                    stopSlideshow();
-                    startSlideshow();
-                }
-            });
-
-            // Keyboard support
-            document.addEventListener('keydown', (e) => {
-                if (!lightbox.classList.contains('active')) return;
-                if (e.key === 'ArrowLeft') changeSlide(-1);
-                if (e.key === 'ArrowRight') changeSlide(1);
-                if (e.key === 'Escape') closeLightbox();
-                if (e.key === ' ') toggleSlideshow();
-            });
+    // --- SENDER LOGIC (Phone) ---
+    function startSender(id) {
+        showPanel('sender');
+        
+        // Generate Link & QR
+        const link = `${window.location.origin}${window.location.pathname}?host=${id}`;
+        document.getElementById('share-link').innerText = link;
+        
+        new QRCode(document.getElementById("qrcode"), {
+            text: link,
+            width: 180,
+            height: 180
         });
-    </script>
+
+        // Wait for connection
+        peer.on('connection', (c) => {
+            conn = c;
+            setupSenderConnection();
+        });
+    }
+
+    function setupSenderConnection() {
+        conn.on('open', () => {
+            const uploadSection = document.getElementById('upload-section');
+            const senderControls = document.getElementById('sender-controls');
+            
+            uploadSection.style.display = 'none';
+            senderControls.style.display = 'block';
+        });
+
+        conn.on('close', () => {
+            alert("PC Disconnected");
+            location.reload();
+        });
+    }
+
+    // Handle File Selection
+    document.getElementById('file-input').addEventListener('change', (e) => {
+        const files = e.target.files;
+        if (!conn || !conn.open) return alert("Connection lost!");
+
+        let sentCount = 0;
+        const status = document.getElementById('sender-status');
+
+        Array.from(files).forEach(file => {
+            // Send file object. PeerJS handles binary serialization automatically.
+            // We wrap it to send metadata (like file type) easily.
+            conn.send({
+                file: file,
+                name: file.name,
+                type: file.type
+            });
+            sentCount++;
+            status.innerText = `Streamed ${sentCount} photos...`;
+        });
+    });
+
+    // --- RECEIVER LOGIC (PC) ---
+    function startReceiver(myId) {
+        showPanel('receiver');
+        document.getElementById('receiver-status').innerText = "Connecting to phone...";
+
+        conn = peer.connect(hostId);
+
+        conn.on('open', () => {
+            document.getElementById('receiver-status').innerText = "Connected! Select photos on your phone to view them here.";
+        });
+
+        conn.on('data', (data) => {
+            if (data.file) {
+                renderImage(data.file);
+            }
+        });
+        
+        conn.on('close', () => {
+            alert("Host disconnected");
+        });
+    }
+
+    function renderImage(fileBlob) {
+        const blobUrl = URL.createObjectURL(new Blob([fileBlob]));
+        
+        const div = document.createElement('div');
+        div.className = 'gallery-item';
+        
+        const img = document.createElement('img');
+        img.src = blobUrl;
+        img.onclick = () => openViewer(blobUrl);
+        
+        div.appendChild(img);
+        document.getElementById('gallery-grid').prepend(div);
+    }
+
+    // --- Viewer Logic ---
+    const viewer = document.getElementById('viewer');
+    const viewerImg = document.getElementById('viewer-img');
+    const closeViewer = document.getElementById('close-viewer');
+
+    function openViewer(src) {
+        viewer.style.display = "block";
+        viewerImg.src = src;
+    }
+
+    closeViewer.onclick = function() {
+        viewer.style.display = "none";
+    }
+</script>
+
 </body>
 </html>
