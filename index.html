@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AirGallery V9 (Fixed Video Controls & Fullscreen)</title>
+    <title>AirGallery V9 (Fit Modes & Auto-Hide UI)</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -118,11 +118,20 @@
         }
         #viewer.active { display: flex; }
 
+        /* --- AUTO-HIDE UI CLASSES --- */
+        .ui-element {
+            transition: opacity 0.3s ease, background 0.2s !important;
+        }
+        #viewer.ui-hidden .ui-element {
+            opacity: 0;
+            pointer-events: none;
+        }
+
         .nav-btn {
             position: absolute; top: 50%; transform: translateY(-50%);
             background: rgba(255,255,255,0.1); color: white;
             border: none; padding: 20px; font-size: 2.5rem; cursor: pointer;
-            border-radius: 50%; transition: background 0.2s; z-index: 101;
+            border-radius: 50%; z-index: 101;
         }
         .nav-btn:hover { background: rgba(255,255,255,0.3); }
         #prev-btn { left: 20px; }
@@ -152,14 +161,29 @@
             transition: max-height 0.3s ease;
         }
 
+        /* --- FIT MODES CSS --- */
+        #viewer-content img.fit-width, #viewer-content video.fit-width {
+            width: 100vw !important;
+            height: auto !important;
+            max-width: none !important;
+            max-height: none !important;
+        }
+
+        #viewer-content img.fit-height, #viewer-content video.fit-height {
+            height: 100vh !important;
+            width: auto !important;
+            max-width: none !important;
+            max-height: none !important;
+        }
+
         /* --- FULLSCREEN DYNAMIC SCALING --- */
-        #viewer:fullscreen #viewer-content img,
-        #viewer:fullscreen #viewer-content video {
+        #viewer:fullscreen #viewer-content img:not(.fit-width):not(.fit-height),
+        #viewer:fullscreen #viewer-content video:not(.fit-width):not(.fit-height) {
             max-height: 100vh;
         }
         /* Safari Fullscreen fallback */
-        #viewer:-webkit-full-screen #viewer-content img,
-        #viewer:-webkit-full-screen #viewer-content video {
+        #viewer:-webkit-full-screen #viewer-content img:not(.fit-width):not(.fit-height),
+        #viewer:-webkit-full-screen #viewer-content video:not(.fit-width):not(.fit-height) {
             max-height: 100vh;
         }
 
@@ -241,22 +265,28 @@
 </div>
 
 <div id="viewer" tabindex="0">
-    <div id="close-viewer">&times;</div>
+    <div id="close-viewer" class="ui-element">&times;</div>
     
-    <div id="viewer-info">
+    <div id="viewer-info" class="ui-element">
         <div id="viewer-date"></div>
         <div id="viewer-counter"></div>
     </div>
 
-    <button class="nav-btn" id="prev-btn"><i class="bi bi-chevron-left"></i></button>
-    <button class="nav-btn" id="next-btn"><i class="bi bi-chevron-right"></i></button>
+    <button class="nav-btn ui-element" id="prev-btn"><i class="bi bi-chevron-left"></i></button>
+    <button class="nav-btn ui-element" id="next-btn"><i class="bi bi-chevron-right"></i></button>
 
     <div id="viewer-content"></div>
 
-    <div class="toolbar">
+    <div class="toolbar ui-element">
         <button class="tool-btn" id="btn-loop" onclick="toggleLoop()"><i class="bi bi-repeat"></i> Loop</button>
         <button class="tool-btn" id="btn-slide" onclick="toggleSlideshow()"><i class="bi bi-play-fill"></i> Slideshow</button>
         
+        <div style="width:1px; background:rgba(255,255,255,0.3); height:20px; margin:0 5px;"></div>
+
+        <button class="tool-btn active" id="btn-fit-auto" onclick="setFitMode('auto')" title="Auto Fit"><i class="bi bi-aspect-ratio"></i></button>
+        <button class="tool-btn" id="btn-fit-width" onclick="setFitMode('width')" title="Fit Width"><i class="bi bi-arrows-horizontal"></i></button>
+        <button class="tool-btn" id="btn-fit-height" onclick="setFitMode('height')" title="Fit Height"><i class="bi bi-arrows-vertical"></i></button>
+
         <div style="width:1px; background:rgba(255,255,255,0.3); height:20px; margin:0 5px;"></div>
 
         <button class="tool-btn" onclick="zoom(-0.2)"><i class="bi bi-zoom-out"></i></button>
@@ -287,10 +317,12 @@
     let startX = 0;
     let startY = 0;
 
-    // Slideshow/Loop State
+    // Features State
     let isLooping = false;
     let isSlideshow = false;
     let slideTimer = null;
+    let currentFitMode = 'auto'; // 'auto', 'width', or 'height'
+    let uiIdleTimer = null;
 
     peer.on('open', (id) => {
         isClient ? initClient(id) : initHost(id);
@@ -396,10 +428,30 @@
     const viewer = document.getElementById('viewer');
     const contentBox = document.getElementById('viewer-content');
 
+    // --- IDLE UI TIMER ---
+    function resetIdleTimer() {
+        if (!viewer.classList.contains('active')) return;
+        
+        viewer.classList.remove('ui-hidden');
+        clearTimeout(uiIdleTimer);
+        
+        uiIdleTimer = setTimeout(() => {
+            if (!isDragging) { // Don't hide if currently dragging around
+                viewer.classList.add('ui-hidden');
+            }
+        }, 5000);
+    }
+
+    // Attach listeners to reset timer
+    ['mousemove', 'mousedown', 'touchstart', 'keydown'].forEach(evt => {
+        viewer.addEventListener(evt, resetIdleTimer);
+    });
+
     function openViewer(index) {
         currentIndex = index;
         viewer.classList.add('active');
         viewer.focus();
+        resetIdleTimer();
         renderViewerContent();
     }
 
@@ -418,8 +470,6 @@
             vid.src = item.url;
             vid.controls = true;
             vid.autoplay = true;
-            
-            // Allow CSS to control max-height naturally for fullscreen scaling
             vid.draggable = false; 
             vid.loop = isLooping;
 
@@ -439,6 +489,7 @@
             }
         }
         
+        applyFitMode(); // Apply sizing rules to new element
         updateNavButtons();
     }
 
@@ -464,6 +515,35 @@
         e.stopPropagation(); stopSlideshow(); changeSlide(1); 
     };
 
+    // --- FIT MODES ---
+    function setFitMode(mode) {
+        currentFitMode = mode;
+        
+        // Update Buttons
+        document.getElementById('btn-fit-auto').classList.remove('active');
+        document.getElementById('btn-fit-width').classList.remove('active');
+        document.getElementById('btn-fit-height').classList.remove('active');
+        document.getElementById(`btn-fit-${mode}`).classList.add('active');
+
+        applyFitMode();
+    }
+
+    function applyFitMode() {
+        const media = contentBox.querySelector('img, video');
+        if (!media) return;
+
+        media.classList.remove('fit-width', 'fit-height');
+        
+        if (currentFitMode === 'width') {
+            media.classList.add('fit-width');
+        } else if (currentFitMode === 'height') {
+            media.classList.add('fit-height');
+        }
+        
+        resetZoom(); // Re-center and reset zoom when changing fit
+    }
+
+    // --- TOOLBAR TOGGLES ---
     function toggleLoop() {
         isLooping = !isLooping;
         const btn = document.getElementById('btn-loop');
@@ -502,25 +582,16 @@
     // --- FULLSCREEN FUNCTION ---
     function toggleFullScreen() {
         if (!document.fullscreenElement) {
-            if (viewer.requestFullscreen) {
-                viewer.requestFullscreen();
-            } else if (viewer.webkitRequestFullscreen) { /* Safari */
-                viewer.webkitRequestFullscreen();
-            } else if (viewer.msRequestFullscreen) { /* IE11 */
-                viewer.msRequestFullscreen();
-            }
+            if (viewer.requestFullscreen) viewer.requestFullscreen();
+            else if (viewer.webkitRequestFullscreen) viewer.webkitRequestFullscreen();
+            else if (viewer.msRequestFullscreen) viewer.msRequestFullscreen();
         } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            } else if (document.webkitExitFullscreen) { /* Safari */
-                document.webkitExitFullscreen();
-            } else if (document.msExitFullscreen) { /* IE11 */
-                document.msExitFullscreen();
-            }
+            if (document.exitFullscreen) document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            else if (document.msExitFullscreen) document.msExitFullscreen();
         }
     }
 
-    // Sync button icon with Fullscreen state
     document.addEventListener('fullscreenchange', () => {
         const btn = document.getElementById('btn-fullscreen');
         if (document.fullscreenElement) {
@@ -571,7 +642,11 @@
     window.addEventListener('mousemove', drag);
 
     function startDrag(e) {
-        if (currentZoom <= 1) return;
+        // Can drag if zoomed, OR if image naturally exceeds bounds due to fit width/height
+        const media = contentBox.querySelector('img, video');
+        const needsScroll = media && (media.classList.contains('fit-width') || media.classList.contains('fit-height'));
+
+        if (currentZoom <= 1 && !needsScroll) return;
         
         e.preventDefault(); isDragging = true;
         startX = e.clientX - translateX; startY = e.clientY - translateY;
@@ -589,6 +664,7 @@
 
     function closeViewer() {
         stopSlideshow();
+        clearTimeout(uiIdleTimer);
         if (document.fullscreenElement) {
             document.exitFullscreen();
         }
